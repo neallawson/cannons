@@ -27,6 +27,7 @@ export class GameState {
             gameStatus: 'waiting',
             winnerId: null,
             damage: [],
+            explosions: [],
         };
     }
 

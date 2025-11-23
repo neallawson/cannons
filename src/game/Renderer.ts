@@ -74,8 +74,24 @@ export class Renderer {
         // Draw Projectiles
         this.drawProjectiles(state);
 
+        // Draw Explosions
+        this.drawExplosions(state);
+
         // Draw HUD
         this.drawHUD(state);
+    }
+
+    private drawExplosions(state: GameStateData) {
+        state.explosions.forEach(exp => {
+            exp.particles.forEach(p => {
+                this.ctx.globalAlpha = p.life;
+                this.ctx.fillStyle = p.color;
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
+        });
+        this.ctx.globalAlpha = 1.0;
     }
 
 
@@ -335,11 +351,6 @@ export class Renderer {
         this.ctx.fillStyle = '#000';
         this.ctx.font = '10px Arial';
         this.ctx.fillText('TNT', x + 8, y + 14);
-
-        // Outline to make it "very visible" as a target even if covered
-        this.ctx.strokeStyle = '#FF0000';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(x, y, width, height);
     }
 
     private drawProjectiles(state: GameStateData) {

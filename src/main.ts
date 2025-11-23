@@ -170,9 +170,21 @@ const aiOpponent = new AIOpponent('p2', (angle, power) => {
 
 // Update "isMyTurn" based on state
 // Update "isMyTurn" based on state
+// Game Over State
+let gameOverHandled = false;
+
 gameState.subscribe(state => {
   if (state.gameStatus === 'finished') {
+    if (gameOverHandled) return;
+
+    // Wait for all explosions to finish before showing Game Over
+    if (state.explosions.length > 0) {
+      return;
+    }
+
+    gameOverHandled = true;
     loop.stop();
+
     const winner = state.players.find(p => p.id === state.winnerId);
     const winnerName = winner?.name || 'Unknown';
 

@@ -59,4 +59,27 @@ export interface GameStateData {
     gameStatus: 'waiting' | 'playing' | 'finished';
     winnerId: string | null;
     damage: { x: number; y: number; r: number; seed: number }[];
+    explosions: Explosion[];
+}
+
+export interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    color: string;
+    life: number; // 0 to 1
+    size: number;
+    growth?: number; // Optional growth rate
+    alphaDecay?: number; // Optional alpha decay rate
+}
+
+export interface Explosion {
+    id: string;
+    x: number;
+    y: number;
+    particles: Particle[];
+    duration: number; // in seconds
+    elapsed: number;
+    type: 'small' | 'big';
 }

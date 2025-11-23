@@ -18,6 +18,55 @@ export class PhysicsEngine {
         for (let i = 0; i < subSteps; i++) {
             this.updateProjectiles(state, subDt);
         }
+
+        this.updateExplosions(state, deltaTime);
+    }
+
+    private updateExplosions(state: GameStateData, dt: number) {
+        state.explosions.forEach(exp => {
+            exp.elapsed += dt;
+            exp.particles.forEach(p => {
+                p.x += p.vx * dt * 60; // Scale for 60fps
+                p.y += p.vy * dt * 60;
+                p.life -= dt / exp.duration;
+            });
+        });
+
+        state.explosions = state.explosions.filter(exp => exp.elapsed < exp.duration);
+    }
+
+    private createExplosion(state: GameStateData, x: number, y: number, type: 'small' | 'big') {
+        const particleCount = type === 'small' ? 20 : 100;
+        const duration = type === 'small' ? 0.5 : 4.0; // Increased to 4.0s for game over
+        const particles = [];
+
+        for (let i = 0; i < particleCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = (Math.random() * 2 + 1) * (type === 'small' ? 1 : 3);
+            const color = type === 'small'
+                ? `hsl(${Math.random() * 60 + 10}, 100%, 50%)` // Orange/Yellow
+                : `hsl(${Math.random() * 360}, 100%, 50%)`; // Rainbow for big win
+
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: color,
+                life: 1.0,
+                size: Math.random() * 3 + 1
+            });
+        }
+
+        state.explosions.push({
+            id: Math.random().toString(),
+            x,
+            y,
+            particles,
+            duration,
+            elapsed: 0,
+            type
+        });
     }
 
     private updateProjectiles(state: GameStateData, dt: number) {
@@ -49,6 +98,7 @@ export class PhysicsEngine {
         // 1. Terrain Collision (Floor)
         if (this.checkTerrainCollision(proj, state)) {
             proj.active = false;
+            this.createExplosion(state, proj.position.x, proj.position.y, 'small');
             return;
         }
 
@@ -81,6 +131,8 @@ export class PhysicsEngine {
             if (dx * dx + dy * dy < bodyRadius * bodyRadius) {
                 // Hit Cannon Body
                 proj.active = false;
+                this.createExplosion(state, proj.position.x, proj.position.y, 'small');
+                this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big'); // Big boom on castle
                 state.gameStatus = 'finished';
                 state.winnerId = proj.ownerId;
                 return;
@@ -91,6 +143,7 @@ export class PhysicsEngine {
             if (this.renderer.isPixelSolid(Math.floor(proj.position.x), Math.floor(proj.position.y))) {
                 // Hit Wall -> Stop and Damage
                 proj.active = false;
+                this.createExplosion(state, proj.position.x, proj.position.y, 'small');
                 player.health -= 10;
 
                 const damageRadius = 10; // Reduced to 10 as requested
@@ -116,6 +169,7 @@ export class PhysicsEngine {
                 if (distSq < splashRadius * splashRadius) {
                     state.gameStatus = 'finished';
                     state.winnerId = proj.ownerId;
+                    this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
                     return;
                 }
 
@@ -138,6 +192,7 @@ export class PhysicsEngine {
                 if (distX * distX + distY * distY < damageRadius * damageRadius) {
                     state.gameStatus = 'finished';
                     state.winnerId = proj.ownerId;
+                    this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
                     return;
                 }
 
@@ -145,6 +200,7 @@ export class PhysicsEngine {
                 if (player.health <= 0) {
                     state.gameStatus = 'finished';
                     state.winnerId = proj.ownerId;
+                    this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
                 }
                 return; // STOP here.
             }
@@ -163,12 +219,15 @@ export class PhysicsEngine {
                 proj.position.y >= magTop && proj.position.y <= magBottom) {
                 // Hit Magazine
                 proj.active = false;
+                this.createExplosion(state, proj.position.x, proj.position.y, 'small');
+                this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
                 state.gameStatus = 'finished';
                 state.winnerId = proj.ownerId;
                 return;
             }
         }
     }
+
     private checkTerrainCollision(proj: Projectile, state: GameStateData): boolean {
         // Pixel-perfect check using Renderer (handles terrain + landscape + destruction)
         if (this.renderer.isTerrainSolid(Math.floor(proj.position.x), Math.floor(proj.position.y))) {
@@ -187,8 +246,6 @@ export class PhysicsEngine {
         }
         return false;
     }
-
-
 
     public fireProjectile(state: GameStateData, angle: number, power: number, ownerId: string) {
         const player = state.players.find(p => p.id === ownerId);
