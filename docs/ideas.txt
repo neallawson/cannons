@@ -1,0 +1,12 @@
+Help me develop a plan and then the code for a browser-game.
+Here are some of the central features:
+- The game can be played in single player (AI) mode or, ideally, multi-player.
+- It's always one player against another in a turn-based strategy game.
+- The game screen shows a castle on a hill on the left and a castle on a hill on the right with a valley in between. One has a red flag, one a blue flag.
+- Each castle has a cannon, and that is the sole weapon of engagement.
+- A player shoots the cannon toward the enemy castle by moving the barrel up and down with the mouse and entering a numerical value (within some bounds) for the cannon's "charge", or power. The cannon is fired, and the projectile flies according to the angle and charge value. If it impacts the castle, a "chunk" is taken out of the castle at that location, ideally taking into account the velocity and angle at impact to accuractly determine the "chunk" that's removed. The first player to either disable the other player's cannon or to hit the magazine room in the lower level of the castle (after knocking away enough chunks to reach it), thus blowing up the castle.
+- For multiplayer, the game uses peer-to-peer.
+- The game needs a peer-to-peer connection system for player's to enter an IP and "ping" another player for a game connection. IP's and associated names can be saved in a local file if desired.
+- Use 2d graphics for the views of the player's castles and the valley in between.
+- The angle and power of the cannon should be sensitive, and the flags at both locations should fly in a manner that indicates the wind speed.
+- The wind speed can vary between the two castles and should be taken into account for the projectile's flight, thus making the shots less repeatable and slightly more unpredictable.
