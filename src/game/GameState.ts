@@ -22,6 +22,8 @@ export class GameState {
             currentTurnPlayerId: '',
             round: 1,
             terrain: [],
+            landscape: [],
+            terrainDamage: [],
             gameStatus: 'waiting',
             winnerId: null,
             damage: [],
@@ -42,27 +44,72 @@ export class GameState {
         const rightPlateau = rightPeak * 0.8;
 
         const terrain = new Array(Math.ceil(this.width)).fill(0);
+        const landscape: any[] = [];
+
+        // Base elevation increase (approx 25% higher than previous 50)
+        const baseElevation = 80;
 
         for (let i = 0; i < this.width; i++) {
             // Left hill
             if (i < hillWidth) {
                 const x = i / hillWidth * Math.PI;
                 const h = Math.sin(x) * leftPeak;
-                terrain[i] = Math.min(h, leftPlateau) + 50;
+                terrain[i] = Math.min(h, leftPlateau) + baseElevation;
             }
             // Right hill
             else if (i > this.width - hillWidth) {
                 const x = (i - (this.width - hillWidth)) / hillWidth * Math.PI;
                 const h = Math.sin(x) * rightPeak;
-                terrain[i] = Math.min(h, rightPlateau) + 50;
+                terrain[i] = Math.min(h, rightPlateau) + baseElevation;
             }
             // Valley
             else {
-                terrain[i] = 50 + Math.random() * 10;
+                // Smooth valley (no random noise)
+                terrain[i] = baseElevation;
+
+                // Randomly place landscape features in the valley
+                if (Math.random() < 0.02) { // 2% chance per pixel
+                    const type = Math.random() > 0.5 ? 'tree' : 'building';
+                    let width, height, color;
+
+                    if (type === 'tree') {
+                        // Vary tree size and color
+                        width = 15 + Math.random() * 15; // 15-30
+                        height = 30 + Math.random() * 30; // 30-60
+                        // Random shade of green
+                        const g = 100 + Math.floor(Math.random() * 100); // 100-200
+                        color = `rgb(30, ${g}, 30)`;
+                    } else {
+                        // Vary building size (max 30x50) and color
+                        width = 20 + Math.random() * 10; // 20-30
+                        height = 30 + Math.random() * 20; // 30-50
+                        // Random earthy/building colors
+                        const r = 100 + Math.floor(Math.random() * 100);
+                        const g = 80 + Math.floor(Math.random() * 80);
+                        const b = 60 + Math.floor(Math.random() * 60);
+                        color = `rgb(${r}, ${g}, ${b})`;
+                    }
+
+                    // Avoid overlapping too much (simple check)
+                    const lastFeature = landscape[landscape.length - 1];
+                    if (!lastFeature || i > lastFeature.x + lastFeature.width + 10) {
+                        landscape.push({
+                            x: i,
+                            y: terrain[i], // Will sit on top of terrain
+                            type,
+                            width,
+                            height,
+                            seed: Math.random(),
+                            color
+                        });
+                    }
+                }
             }
         }
 
         this.state.terrain = terrain;
+        this.state.landscape = landscape;
+        this.state.terrainDamage = []; // Reset terrain damage
     }
 
     public getState(): GameStateData {

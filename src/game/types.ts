@@ -37,13 +37,25 @@ export interface GameConfig {
     windEnabled: boolean;
 }
 
+export interface LandscapeFeature {
+    x: number;
+    y: number;
+    type: 'tree' | 'building';
+    width: number;
+    height: number;
+    seed: number;
+    color: string;
+}
+
 export interface GameStateData {
     players: Player[];
     projectiles: Projectile[];
     wind: Wind;
     currentTurnPlayerId: string;
     round: number;
-    terrain: number[]; // Simple heightmap for now, or we can use a more complex structure
+    terrain: number[]; // Simple heightmap for collision/initial generation
+    landscape: LandscapeFeature[];
+    terrainDamage: { x: number; y: number; r: number; seed: number }[];
     gameStatus: 'waiting' | 'playing' | 'finished';
     winnerId: string | null;
     damage: { x: number; y: number; r: number; seed: number }[];

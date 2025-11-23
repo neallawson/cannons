@@ -171,16 +171,20 @@ export class PhysicsEngine {
     }
 
     private checkTerrainCollision(proj: Projectile, state: GameStateData): boolean {
-        const terrainWidth = window.innerWidth;
-        const index = Math.floor((proj.position.x / terrainWidth) * state.terrain.length);
+        // Pixel-perfect check using Renderer (handles terrain + landscape + destruction)
+        if (this.renderer.isTerrainSolid(Math.floor(proj.position.x), Math.floor(proj.position.y))) {
+            // Hit Terrain -> Damage
+            const damageRadius = 20; // Good size for terrain holes
+            const seed = Math.random();
 
-        if (index >= 0 && index < state.terrain.length) {
-            const terrainHeight = state.terrain[index];
-            const terrainY = window.innerHeight - terrainHeight;
+            state.terrainDamage.push({
+                x: proj.position.x,
+                y: proj.position.y,
+                r: damageRadius,
+                seed: seed
+            });
 
-            if (proj.position.y >= terrainY) {
-                return true;
-            }
+            return true;
         }
         return false;
     }

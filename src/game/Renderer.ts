@@ -1,3 +1,4 @@
+
 import type { GameStateData, Point } from './types';
 
 export class Renderer {
@@ -5,8 +6,13 @@ export class Renderer {
     private ctx: CanvasRenderingContext2D;
     private width: number = 0;
     private height: number = 0;
-    private castleLayer: HTMLCanvasElement;
+
+    // Offscreen layers
+    private castleCanvas: HTMLCanvasElement;
     private castleCtx: CanvasRenderingContext2D;
+
+    private terrainCanvas: HTMLCanvasElement;
+    private terrainCtx: CanvasRenderingContext2D;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -16,9 +22,13 @@ export class Renderer {
         }
         this.ctx = context;
 
-        // Offscreen layer for castles
-        this.castleLayer = document.createElement('canvas');
-        this.castleCtx = this.castleLayer.getContext('2d')!;
+        // Offscreen canvas for castle destruction
+        this.castleCanvas = document.createElement('canvas');
+        this.castleCtx = this.castleCanvas.getContext('2d')!;
+
+        // Offscreen canvas for terrain destruction
+        this.terrainCanvas = document.createElement('canvas');
+        this.terrainCtx = this.terrainCanvas.getContext('2d')!;
 
         this.resize();
         window.addEventListener('resize', () => this.resize());
@@ -30,22 +40,47 @@ export class Renderer {
         this.canvas.width = this.width;
         this.canvas.height = this.height;
 
-        this.castleLayer.width = this.width;
-        this.castleLayer.height = this.height;
+        this.castleCanvas.width = this.width;
+        this.castleCanvas.height = this.height;
+
+        this.terrainCanvas.width = this.width;
+        this.terrainCanvas.height = this.height;
     }
 
     public render(state: GameStateData) {
-        this.clear();
+        // Clear main canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Draw Sky
         this.drawSky();
-        this.drawTerrain(state.terrain);
-        this.drawCastlesWithDamage(state);
+
+        // Draw Terrain (Persistent Layer)
+        // Let's use the Castle approach for now for simplicity and robustness:
+        // 1. Clear Terrain Canvas
+        // 2. Draw Base Terrain & Landscape
+        // 3. Apply All Terrain Damage (holes)
+        // This is fast enough for 2D canvas.
+
+        this.terrainCtx.clearRect(0, 0, this.terrainCanvas.width, this.terrainCanvas.height);
+        this.drawTerrainBase(state);
+        this.applyTerrainDamage(state);
+
+        // Draw Terrain Canvas to Main Canvas
+        this.ctx.drawImage(this.terrainCanvas, 0, 0);
+
+        // Draw Castles (Persistent Layer logic inside)
+        this.drawCastles(state);
+
+        // Draw Projectiles
         this.drawProjectiles(state);
+
+        // Draw HUD
         this.drawHUD(state);
     }
 
-    private clear() {
-        this.ctx.clearRect(0, 0, this.width, this.height);
-    }
+
+
+
 
     private drawSky() {
         // Simple gradient sky
@@ -56,22 +91,111 @@ export class Renderer {
         this.ctx.fillRect(0, 0, this.width, this.height);
     }
 
-    private drawTerrain(terrain: number[]) {
-        if (terrain.length === 0) return;
+    private drawTerrainBase(state: GameStateData) {
+        const ctx = this.terrainCtx;
+        const { width, height } = this.terrainCanvas;
 
-        this.ctx.fillStyle = '#4CAF50'; // Green
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, this.height);
+        // Draw Ground (Mountains/Terrain)
+        // Create gradient for mountains (Grey/Brown) -> Green Valley
+        // Terrain height values are from bottom (0) to top (height).
+        // But canvas Y is 0 at top, height at bottom.
+        // The terrain line is at y = height - terrain[i].
+        // Max terrain height is around 400 (peaks), min is 80 (valley).
+        // So peaks are at Y ~ height - 400. Valley is at Y ~ height - 80.
+        // We want peaks to be grey, slopes brown, valley green.
 
-        const step = this.width / (terrain.length - 1);
+        const gradient = ctx.createLinearGradient(0, height - 400, 0, height);
+        gradient.addColorStop(0, '#808080'); // Grey at peaks
+        gradient.addColorStop(0.6, '#5d4037'); // Brown slopes
+        gradient.addColorStop(0.9, '#388E3C'); // Medium-Dark Green valley
+        gradient.addColorStop(1, '#2E7D32'); // Darker Green base
 
-        for (let i = 0; i < terrain.length; i++) {
-            this.ctx.lineTo(i * step, this.height - terrain[i]);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        for (let i = 0; i < width; i++) {
+            ctx.lineTo(i, height - state.terrain[i]);
         }
+        ctx.lineTo(width, height);
+        ctx.closePath();
+        ctx.fill();
 
-        this.ctx.lineTo(this.width, this.height);
-        this.ctx.closePath();
-        this.ctx.fill();
+        // Draw Landscape Features
+        if (state.landscape) {
+            state.landscape.forEach(feature => {
+                const y = height - feature.y;
+                if (feature.type === 'tree') {
+                    // Trunk
+                    ctx.fillStyle = '#3e2723'; // Dark brown trunk
+                    ctx.fillRect(feature.x + feature.width * 0.4, y - feature.height * 0.2, feature.width * 0.2, feature.height * 0.2);
+                    // Leaves (Triangle) - Use stored color
+                    ctx.fillStyle = feature.color;
+                    ctx.beginPath();
+                    ctx.moveTo(feature.x, y - feature.height * 0.2);
+                    ctx.lineTo(feature.x + feature.width / 2, y - feature.height);
+                    ctx.lineTo(feature.x + feature.width, y - feature.height * 0.2);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (feature.type === 'building') {
+                    // House body - Use stored color
+                    ctx.fillStyle = feature.color;
+                    ctx.fillRect(feature.x, y - feature.height * 0.6, feature.width, feature.height * 0.6);
+                    // Roof
+                    ctx.fillStyle = '#3e2723'; // Dark roof
+                    ctx.beginPath();
+                    ctx.moveTo(feature.x - 2, y - feature.height * 0.6);
+                    ctx.lineTo(feature.x + feature.width / 2, y - feature.height);
+                    ctx.lineTo(feature.x + feature.width + 2, y - feature.height * 0.6);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Door
+                    ctx.fillStyle = '#212121';
+                    ctx.fillRect(feature.x + feature.width * 0.4, y - feature.height * 0.2, feature.width * 0.2, feature.height * 0.2);
+                }
+            });
+        }
+    }
+
+    private applyTerrainDamage(state: GameStateData) {
+        const ctx = this.terrainCtx;
+        ctx.globalCompositeOperation = 'destination-out';
+
+        state.terrainDamage.forEach(d => {
+            ctx.beginPath();
+            // Jagged explosion for terrain too
+            const spikes = 12;
+            const step = (Math.PI * 2) / spikes;
+            let angle = 0;
+
+            const random = (seed: number) => {
+                const x = Math.sin(seed++) * 10000;
+                return x - Math.floor(x);
+            };
+            let currentSeed = d.seed;
+
+            for (let i = 0; i < spikes; i++) {
+                const r = d.r * (0.8 + random(currentSeed + i) * 0.4);
+                const x = d.x + Math.cos(angle) * r;
+                const y = d.y + Math.sin(angle) * r;
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                angle += step;
+            }
+            ctx.closePath();
+            ctx.fill();
+        });
+
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    public isTerrainSolid(x: number, y: number): boolean {
+        if (x < 0 || x >= this.terrainCanvas.width || y < 0 || y >= this.terrainCanvas.height) return false;
+        const pixel = this.terrainCtx.getImageData(x, y, 1, 1).data;
+        return pixel[3] > 0; // Alpha > 0 means solid
     }
 
     public isPixelSolid(x: number, y: number): boolean {
@@ -83,7 +207,7 @@ export class Renderer {
         return pixel[3] > 0; // Alpha > 0 means solid
     }
 
-    private drawCastlesWithDamage(state: GameStateData) {
+    private drawCastles(state: GameStateData) {
         // Draw Magazine (behind castle layer)
         state.players.forEach(player => {
             this.drawMagazine(player.castlePosition);
@@ -134,41 +258,11 @@ export class Renderer {
         this.castleCtx.globalCompositeOperation = 'source-over'; // Reset
 
         // Draw layer to main canvas
-        this.ctx.drawImage(this.castleLayer, 0, 0);
+        this.ctx.drawImage(this.castleCanvas, 0, 0);
 
         // Draw cannons (Body + Barrel) on top
         state.players.forEach(player => {
             this.drawCannon(player.castlePosition, player.cannonAngle);
-        });
-
-        // DEBUG: Draw Hitboxes
-        this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
-        this.ctx.lineWidth = 2;
-        state.players.forEach(player => {
-            // Castle Bounds
-            const castleW = 120;
-            const castleH = 120;
-            this.ctx.strokeRect(
-                player.castlePosition.x - castleW / 2,
-                player.castlePosition.y - castleH,
-                castleW,
-                castleH
-            );
-
-            // Cannon Body
-            this.ctx.beginPath();
-            this.ctx.arc(player.castlePosition.x, player.castlePosition.y - 60, 12, 0, Math.PI * 2);
-            this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; // Red for targets
-            this.ctx.stroke();
-
-            // Magazine
-            this.ctx.strokeRect(
-                player.castlePosition.x - 15, // x - width/2
-                player.castlePosition.y - 20,
-                30, // Width
-                20
-            );
-            this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)'; // Back to green
         });
     }
 
@@ -257,19 +351,19 @@ export class Renderer {
     private drawHUD(state: GameStateData) {
         this.ctx.fillStyle = '#000';
         this.ctx.font = '20px Arial';
-        this.ctx.fillText(`Round: ${state.round}`, 20, 30);
-        this.ctx.fillText(`Wind: ${state.wind.speed.toFixed(1)}`, 20, 60);
+        this.ctx.fillText(`Round: ${state.round} `, 20, 30);
+        this.ctx.fillText(`Wind: ${state.wind.speed.toFixed(1)} `, 20, 60);
 
         const currentPlayer = state.players.find(p => p.id === state.currentTurnPlayerId);
         if (currentPlayer) {
-            this.ctx.fillText(`Turn: ${currentPlayer.name}`, 20, 90);
+            this.ctx.fillText(`Turn: ${currentPlayer.name} `, 20, 90);
         }
 
         // Scores
         const p1 = state.players.find(p => p.id === 'p1');
         const p2 = state.players.find(p => p.id === 'p2');
         if (p1 && p2) {
-            this.ctx.fillText(`Score: ${p1.wins} - ${p2.wins}`, 20, 120);
+            this.ctx.fillText(`Score: ${p1.wins} - ${p2.wins} `, 20, 120);
         }
     }
 }
