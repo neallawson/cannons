@@ -215,8 +215,26 @@ gameState.subscribe(state => {
   if (isMultiplayer) {
     inputManager.setMyTurn(state.currentTurnPlayerId === myPlayerId);
     document.getElementById('status')!.innerText = `Player: ${myPlayerId} | Turn: ${state.currentTurnPlayerId}`;
+
+    // Update cannon position for aiming
+    const myPlayer = state.players.find(p => p.id === myPlayerId);
+    if (myPlayer) {
+      // Cannon pivot is at (x, y - 60). 
+      // We'll adjust this slightly if we move the pivot in Renderer.
+      // Let's assume pivot is at y - 70 (center of dome).
+      inputManager.setCannonPosition(myPlayer.castlePosition.x, myPlayer.castlePosition.y - 70);
+    }
+
   } else {
-    inputManager.setMyTurn(state.currentTurnPlayerId === 'p1'); // Local play: P1 is human
+    const isP1Turn = state.currentTurnPlayerId === 'p1';
+    inputManager.setMyTurn(isP1Turn); // Local play: P1 is human
+
+    if (isP1Turn) {
+      const p1 = state.players.find(p => p.id === 'p1');
+      if (p1) {
+        inputManager.setCannonPosition(p1.castlePosition.x, p1.castlePosition.y - 70);
+      }
+    }
 
     // AI Update
     if (!isMultiplayer) {

@@ -280,7 +280,10 @@ export class Renderer {
         this.ctx.fill();
 
         // 2. Draw Barrel (Rotates around body center)
-        this.ctx.translate(bodyX, bodyY); // Pivot at body center
+        // Move pivot up to center of dome (radius is 20, so center is y - 10 relative to base)
+        const pivotY = bodyY - 10;
+
+        this.ctx.translate(bodyX, pivotY); // Pivot at body center
         this.ctx.rotate(-angle * (Math.PI / 180));
         this.ctx.fillStyle = '#333';
         this.ctx.fillRect(0, -8, 60, 16); // Barrel

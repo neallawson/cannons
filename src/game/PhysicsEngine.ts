@@ -93,7 +93,7 @@ export class PhysicsEngine {
                 proj.active = false;
                 player.health -= 10;
 
-                const damageRadius = 12; // Reduced from 20 to 12
+                const damageRadius = 10; // Reduced to 10 as requested
                 const seed = Math.random();
 
                 state.damage.push({
@@ -169,12 +169,11 @@ export class PhysicsEngine {
             }
         }
     }
-
     private checkTerrainCollision(proj: Projectile, state: GameStateData): boolean {
         // Pixel-perfect check using Renderer (handles terrain + landscape + destruction)
         if (this.renderer.isTerrainSolid(Math.floor(proj.position.x), Math.floor(proj.position.y))) {
             // Hit Terrain -> Damage
-            const damageRadius = 20; // Good size for terrain holes
+            const damageRadius = 10; // Reduced to 10 as requested
             const seed = Math.random();
 
             state.terrainDamage.push({
@@ -202,9 +201,9 @@ export class PhysicsEngine {
         };
 
         // Spawn at the tip of the cannon barrel + margin
-        // Cannon pivot is at (x, y - 60)
+        // Cannon pivot is at (x, y - 70) (Moved up 10px)
         const pivotX = player.castlePosition.x;
-        const pivotY = player.castlePosition.y - 60;
+        const pivotY = player.castlePosition.y - 70;
         const barrelLength = 60;
         const spawnDist = barrelLength + 20; // 80 units from pivot
 

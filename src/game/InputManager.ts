@@ -8,6 +8,7 @@ export class InputManager {
     private currentAngle: number = 45;
     private currentPower: number = 50;
     private isMyTurn: boolean = false;
+    private cannonPosition: { x: number, y: number } | null = null;
 
     constructor(canvas: HTMLCanvasElement, onFire: (angle: number, power: number) => void, onAngleChange: (angle: number) => void) {
         this.canvas = canvas;
@@ -21,26 +22,54 @@ export class InputManager {
         this.isMyTurn = isMyTurn;
     }
 
+    public setCannonPosition(x: number, y: number) {
+        this.cannonPosition = { x, y };
+    }
+
     private setupListeners() {
         // Mouse movement for angle
         this.canvas.addEventListener('mousemove', (e) => {
-            if (!this.isMyTurn) return;
+            if (!this.isMyTurn || !this.cannonPosition) return;
 
             const rect = this.canvas.getBoundingClientRect();
-            const y = e.clientY - rect.top;
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-            // Calculate angle relative to bottom-left (approximate castle position for now)
-            // Ideally we should know the player's castle position.
-            // For now, let's just map mouseY to angle.
-            // Top of screen = 90 deg, Bottom = 0 deg.
-            const percentage = 1 - (y / window.innerHeight);
-            this.currentAngle = percentage * 90;
+            // Calculate angle from cannon to mouse
+            // Cannon pivot is at cannonPosition (which should be the barrel pivot)
+            const dx = mouseX - this.cannonPosition.x;
+            const dy = mouseY - this.cannonPosition.y;
 
+            // Math.atan2(y, x) gives angle in radians.
+            // Y is positive down in canvas, but we want "up" to be positive angle?
+            // In our system: 
+            // 45 deg = Up-Right. (dx>0, dy<0)
+            // 135 deg = Up-Left. (dx<0, dy<0)
+            // atan2(dy, dx) for Up-Right (dy<0) gives negative radians (e.g. -PI/4).
+            // So we want -atan2(...) converted to degrees.
+
+            const rad = Math.atan2(dy, dx);
+            let angle = -rad * (180 / Math.PI);
+
+            // Normalize to 0-360 if needed, but our system seems to handle it.
+            // Actually, let's keep it simple.
+            if (angle < 0) angle += 360;
+
+            this.currentAngle = angle;
             this.onAngleChange(this.currentAngle);
         });
 
-        // Click to fire (or use UI button)
-        // Let's use a UI button for firing to be precise, or Spacebar.
+        // Click to fire (Left Click)
+        this.canvas.addEventListener('mousedown', (e) => {
+            if (!this.isMyTurn) return;
+
+            // Left click is button 0
+            if (e.button === 0) {
+                this.onFire(this.currentAngle, this.currentPower);
+            }
+        });
+
+        // Spacebar to fire
         window.addEventListener('keydown', (e) => {
             if (!this.isMyTurn) return;
 
