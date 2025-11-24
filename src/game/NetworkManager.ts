@@ -1,5 +1,5 @@
 export class NetworkManager {
-    private signalingUrl: string = 'ws://localhost:8080';
+    private signalingUrl: string = `ws://${window.location.hostname}:8080`;
     private ws: WebSocket | null = null;
     private peerConnection: RTCPeerConnection | null = null;
     private dataChannel: RTCDataChannel | null = null;
