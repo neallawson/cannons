@@ -13,6 +13,7 @@ app.innerHTML = `
     <button id="fireBtn">Fire</button>
   </div>
   <div id="debug-log" style="position: absolute; top: 250px; left: 20px; color: yellow; font-family: monospace; font-size: 12px; background: rgba(0,0,0,0.5); padding: 10px; pointer-events: none; max-height: 200px; overflow: hidden;"></div>
+  <div id="window-size" style="position: absolute; top: 10px; right: 10px; color: lime; font-family: monospace; font-size: 16px; background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;"></div>
 `;
 
 function log(msg: string) {
@@ -29,8 +30,9 @@ function log(msg: string) {
 }
 
 const canvas = document.querySelector<HTMLCanvasElement>('#gameCanvas')!;
-const width = window.innerWidth;
-const height = window.innerHeight;
+// Fixed Logical Resolution
+const LOGICAL_WIDTH = 2488;
+const LOGICAL_HEIGHT = 1332;
 
 // Defer initialization until we have a seed
 let gameState: GameState;
@@ -44,8 +46,9 @@ let myPlayerId = 'p1';
 import { PhysicsEngine } from './game/PhysicsEngine';
 
 function startGame(seed: number) {
-  gameState = new GameState(width, height, seed);
+  gameState = new GameState(LOGICAL_WIDTH, LOGICAL_HEIGHT, seed);
   renderer = new Renderer(canvas);
+  // renderer.setGameDimensions(gameWidth, gameHeight); // Removed
   physicsEngine = new PhysicsEngine(renderer);
 
   // Hill parameters (for X positioning only)
@@ -54,7 +57,7 @@ function startGame(seed: number) {
   gameState.update(() => {
     // Place castles on top of hills (X only, Y is handled by GameState)
     const p1X = hillWidth / 2;
-    const p2X = width - hillWidth / 2;
+    const p2X = LOGICAL_WIDTH - hillWidth / 2;
 
     const player1: Player = {
       id: 'p1',
@@ -90,6 +93,11 @@ function startGame(seed: number) {
     },
     () => {
       renderer.render(gameState.getState());
+      // Sync view offset and scale to input manager
+      const offset = renderer.getViewOffset();
+      const scale = renderer.getScale();
+      inputManager.setViewOffset(offset.x, offset.y);
+      inputManager.setScale(scale);
     }
   );
 
@@ -112,7 +120,7 @@ const networkManager = new NetworkManager(
   },
   (seed) => {
     // Multiplayer Game Start
-    console.log('Starting multiplayer game with seed:', seed);
+    console.log(`Starting multiplayer game with seed: ${seed}`);
     // If we were in single player mode (default), stop it and restart with synced seed
     if (loop) loop.stop();
     startGame(seed);
@@ -266,7 +274,9 @@ function setupGameSubscriptions() {
       const checksum = gameState.getTerrainChecksum().toFixed(0);
       document.getElementById('status')!.innerHTML = `
         Player: ${myPlayerId} | Turn: ${state.currentTurnPlayerId}<br>
-        Seed: ${gameState.getSeed()} | Width: ${width}<br>
+        Player: ${myPlayerId} | Turn: ${state.currentTurnPlayerId}<br>
+        Seed: ${gameState.getSeed()} | Width: ${LOGICAL_WIDTH}<br>
+        Terrain Checksum: ${checksum}
         Terrain Checksum: ${checksum}
       `;
 

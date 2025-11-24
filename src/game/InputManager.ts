@@ -9,6 +9,8 @@ export class InputManager {
     private currentPower: number = 50;
     private isMyTurn: boolean = false;
     private cannonPosition: { x: number, y: number } | null = null;
+    private viewOffset: { x: number, y: number } = { x: 0, y: 0 };
+    private scale: number = 1;
 
     constructor(canvas: HTMLCanvasElement, onFire: (angle: number, power: number) => void, onAngleChange: (angle: number) => void) {
         this.canvas = canvas;
@@ -26,14 +28,22 @@ export class InputManager {
         this.cannonPosition = { x, y };
     }
 
+    public setViewOffset(x: number, y: number) {
+        this.viewOffset = { x, y };
+    }
+
+    public setScale(scale: number) {
+        this.scale = scale;
+    }
+
     private setupListeners() {
         // Mouse movement for angle
         this.canvas.addEventListener('mousemove', (e) => {
             if (!this.isMyTurn || !this.cannonPosition) return;
 
             const rect = this.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            const mouseX = (e.clientX - rect.left - this.viewOffset.x) / this.scale;
+            const mouseY = (e.clientY - rect.top - this.viewOffset.y) / this.scale;
 
             // Calculate angle from cannon to mouse
             // Cannon pivot is at cannonPosition (which should be the barrel pivot)
@@ -65,6 +75,7 @@ export class InputManager {
 
             // Left click is button 0
             if (e.button === 0) {
+                console.log('Fire click detected', this.currentAngle, this.currentPower);
                 this.onFire(this.currentAngle, this.currentPower);
             }
         });

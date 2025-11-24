@@ -177,8 +177,8 @@ export class PhysicsEngine {
             // Check collisions
             this.checkCollisions(proj, state);
 
-            // Check out of bounds
-            if (proj.position.y > window.innerHeight || proj.position.x < 0 || proj.position.x > window.innerWidth) {
+            // Check out of bounds (Logical Resolution)
+            if (proj.position.y > 1332 || proj.position.x < 0 || proj.position.x > 2488) {
                 proj.active = false;
             }
         });

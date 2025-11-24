@@ -7,6 +7,13 @@ export class Renderer {
     private width: number = 0;
     private height: number = 0;
 
+    // Fixed Logical Resolution
+    private readonly LOGICAL_WIDTH = 2488;
+    private readonly LOGICAL_HEIGHT = 1332;
+
+    private scale: number = 1;
+    private viewOffset: { x: number, y: number } = { x: 0, y: 0 };
+
     // Offscreen layers
     private castleCanvas: HTMLCanvasElement;
     private castleCtx: CanvasRenderingContext2D;
@@ -34,33 +41,59 @@ export class Renderer {
         window.addEventListener('resize', () => this.resize());
     }
 
+    public getViewOffset() {
+        return this.viewOffset;
+    }
+
+    public getScale() {
+        return this.scale;
+    }
+
     private resize() {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
 
-        this.castleCanvas.width = this.width;
-        this.castleCanvas.height = this.height;
+        // Calculate Scale to fit window while maintaining aspect ratio
+        const scaleX = this.width / this.LOGICAL_WIDTH;
+        const scaleY = this.height / this.LOGICAL_HEIGHT;
+        this.scale = Math.min(scaleX, scaleY);
 
-        this.terrainCanvas.width = this.width;
-        this.terrainCanvas.height = this.height;
+        // Calculate Offset to center the view
+        this.viewOffset.x = Math.floor((this.width - (this.LOGICAL_WIDTH * this.scale)) / 2);
+        this.viewOffset.y = Math.floor((this.height - (this.LOGICAL_HEIGHT * this.scale)) / 2);
+
+        // Resize offscreen canvases to LOGICAL dimensions
+        this.castleCanvas.width = this.LOGICAL_WIDTH;
+        this.castleCanvas.height = this.LOGICAL_HEIGHT;
+
+        this.terrainCanvas.width = this.LOGICAL_WIDTH;
+        this.terrainCanvas.height = this.LOGICAL_HEIGHT;
     }
 
     public render(state: GameStateData) {
-        // Clear main canvas
+        // Clear main canvas (Window)
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw Sky
+        // Draw Letterbox Background (Dark Grey)
+        this.ctx.fillStyle = '#222';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Save context and apply transformation
+        this.ctx.save();
+        this.ctx.translate(this.viewOffset.x, this.viewOffset.y);
+        this.ctx.scale(this.scale, this.scale);
+
+        // Clip to game area (Logical Size)
+        this.ctx.beginPath();
+        this.ctx.rect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
+        this.ctx.clip();
+
+        // Draw Sky (now fills logical area)
         this.drawSky();
 
         // Draw Terrain (Persistent Layer)
-        // Let's use the Castle approach for now for simplicity and robustness:
-        // 1. Clear Terrain Canvas
-        // 2. Draw Base Terrain & Landscape
-        // 3. Apply All Terrain Damage (holes)
-        // This is fast enough for 2D canvas.
-
         this.terrainCtx.clearRect(0, 0, this.terrainCanvas.width, this.terrainCanvas.height);
         this.drawTerrainBase(state);
         this.applyTerrainDamage(state);
@@ -79,6 +112,9 @@ export class Renderer {
 
         // Draw HUD
         this.drawHUD(state);
+
+        // Restore context (remove translation/scale/clip)
+        this.ctx.restore();
     }
 
     private drawExplosions(state: GameStateData) {
@@ -100,11 +136,11 @@ export class Renderer {
 
     private drawSky() {
         // Simple gradient sky
-        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.LOGICAL_HEIGHT);
         gradient.addColorStop(0, '#87CEEB'); // Sky blue
         gradient.addColorStop(1, '#E0F7FA'); // Lighter blue
         this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.width, this.height);
+        this.ctx.fillRect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
     }
 
     private drawTerrainBase(state: GameStateData) {
@@ -216,7 +252,7 @@ export class Renderer {
 
     public isPixelSolid(x: number, y: number): boolean {
         // Check if within canvas bounds
-        if (x < 0 || x >= this.width || y < 0 || y >= this.height) return false;
+        if (x < 0 || x >= this.LOGICAL_WIDTH || y < 0 || y >= this.LOGICAL_HEIGHT) return false;
 
         // Get pixel alpha
         const pixel = this.castleCtx.getImageData(x, y, 1, 1).data;
@@ -230,7 +266,7 @@ export class Renderer {
         });
 
         // Clear offscreen layer
-        this.castleCtx.clearRect(0, 0, this.width, this.height);
+        this.castleCtx.clearRect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
 
         // Draw castles normally
         state.players.forEach(player => {
