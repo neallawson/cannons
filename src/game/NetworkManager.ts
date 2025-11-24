@@ -4,10 +4,17 @@ export class NetworkManager {
     private peerConnection: RTCPeerConnection | null = null;
     private dataChannel: RTCDataChannel | null = null;
     private onDataCallback: ((data: any) => void) | null = null;
+    private onGameStartCallback: ((seed: number) => void) | null = null;
     private isHost: boolean = false;
 
-    constructor(onData: (data: any) => void) {
+    constructor(onData: (data: any) => void, onGameStart: (seed: number) => void, _logger: (msg: string) => void) {
         this.onDataCallback = onData;
+        this.onGameStartCallback = onGameStart;
+        // this.logger = logger;
+    }
+
+    private log(_msg: string) {
+        // if (this.logger) this.logger(msg);
     }
 
     public async hostGame() {
@@ -21,22 +28,46 @@ export class NetworkManager {
     }
 
     private connectSignaling() {
+        this.log(`Connecting to signaling: ${this.signalingUrl}`);
         this.ws = new WebSocket(this.signalingUrl);
 
         this.ws.onopen = () => {
-            console.log('Connected to signaling server');
+            this.log('Connected to signaling server');
             this.setupPeerConnection();
+            if (!this.isHost) {
+                this.log('Sending join-request');
+                this.sendSignaling({ type: 'join-request' });
+            }
         };
 
         this.ws.onmessage = async (event) => {
-            const message = JSON.parse(event.data);
+            let message;
+            try {
+                if (event.data instanceof Blob) {
+                    message = JSON.parse(await event.data.text());
+                } else {
+                    message = JSON.parse(event.data);
+                }
+            } catch (e) {
+                this.log('Error parsing signaling message');
+                return;
+            }
 
-            if (message.type === 'offer') {
+            // this.log(`Signaling received: ${message.type}`);
+
+            if (message.type === 'join-request') {
+                if (this.isHost) {
+                    this.log('Received join-request, creating offer');
+                    this.createOffer();
+                }
+            } else if (message.type === 'offer') {
                 if (!this.isHost) {
+                    this.log('Received offer');
                     await this.handleOffer(message.offer);
                 }
             } else if (message.type === 'answer') {
                 if (this.isHost) {
+                    this.log('Received answer');
                     await this.handleAnswer(message.answer);
                 }
             } else if (message.type === 'candidate') {
@@ -46,6 +77,7 @@ export class NetworkManager {
     }
 
     private setupPeerConnection() {
+        this.log('Setting up PeerConnection');
         const config = {
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         };
@@ -57,12 +89,18 @@ export class NetworkManager {
             }
         };
 
+        this.peerConnection.onconnectionstatechange = () => {
+            this.log(`PeerConnection state: ${this.peerConnection?.connectionState}`);
+        };
+
         if (this.isHost) {
+            this.log('Creating DataChannel');
             this.dataChannel = this.peerConnection.createDataChannel('game');
             this.setupDataChannel(this.dataChannel);
-            this.createOffer();
+            // Host waits for join-request to create offer
         } else {
             this.peerConnection.ondatachannel = (event) => {
+                this.log('Received DataChannel');
                 this.dataChannel = event.channel;
                 this.setupDataChannel(this.dataChannel);
             };
@@ -70,12 +108,39 @@ export class NetworkManager {
     }
 
     private setupDataChannel(channel: RTCDataChannel) {
-        channel.onopen = () => {
-            console.log('Data channel open');
+        const onOpen = () => {
+            this.log('Data channel open');
+            if (!this.isHost) {
+                this.log('Sending READY');
+                this.sendData({ type: 'ready' });
+            }
         };
+
+        if (channel.readyState === 'open') {
+            onOpen();
+        } else {
+            channel.onopen = onOpen;
+        }
+
         channel.onmessage = (event) => {
-            if (this.onDataCallback) {
-                this.onDataCallback(JSON.parse(event.data));
+            const message = JSON.parse(event.data);
+            this.log(`DC Message: ${message.type}`);
+            if (message.type === 'ready') {
+                if (this.isHost) {
+                    const seed = Date.now();
+                    this.log(`Sending START with seed ${seed}`);
+                    this.sendData({ type: 'start', seed });
+                    if (this.onGameStartCallback) {
+                        this.onGameStartCallback(seed);
+                    }
+                }
+            } else if (message.type === 'start') {
+                this.log(`Received START with seed ${message.seed}`);
+                if (this.onGameStartCallback) {
+                    this.onGameStartCallback(message.seed);
+                }
+            } else if (this.onDataCallback) {
+                this.onDataCallback(message);
             }
         };
     }

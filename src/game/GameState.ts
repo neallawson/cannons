@@ -1,17 +1,24 @@
 import type { GameStateData, Player } from './types';
+import { Random } from './Random';
 
 export class GameState {
     private state: GameStateData;
     private listeners: ((state: GameStateData) => void)[] = [];
+    private rng: Random;
 
     private width: number;
     private height: number;
 
-    constructor(width: number, height: number) {
+    constructor(width: number, height: number, seed: number) {
         this.width = width;
         this.height = height;
+        this.rng = new Random(seed);
         this.state = this.getInitialState();
         this.generateTerrain(); // Generate initial terrain
+    }
+
+    public getSeed(): number {
+        return this.rng.seed;
     }
 
     private getInitialState(): GameStateData {
@@ -37,8 +44,8 @@ export class GameState {
 
         // Independent heights for left and right hills
         // Increased range: 150 to 400
-        const leftPeak = 150 + Math.random() * 250;
-        const rightPeak = 150 + Math.random() * 250;
+        const leftPeak = 150 + this.rng.next() * 250;
+        const rightPeak = 150 + this.rng.next() * 250;
 
         // Plateaus (80% of peak)
         const leftPlateau = leftPeak * 0.8;
@@ -69,25 +76,25 @@ export class GameState {
                 terrain[i] = baseElevation;
 
                 // Randomly place landscape features in the valley
-                if (Math.random() < 0.02) { // 2% chance per pixel
-                    const type = Math.random() > 0.5 ? 'tree' : 'building';
+                if (this.rng.next() < 0.02) { // 2% chance per pixel
+                    const type = this.rng.next() > 0.5 ? 'tree' : 'building';
                     let width, height, color;
 
                     if (type === 'tree') {
                         // Vary tree size and color
-                        width = 15 + Math.random() * 15; // 15-30
-                        height = 30 + Math.random() * 30; // 30-60
+                        width = 15 + this.rng.next() * 15; // 15-30
+                        height = 30 + this.rng.next() * 30; // 30-60
                         // Random shade of green
-                        const g = 100 + Math.floor(Math.random() * 100); // 100-200
+                        const g = 100 + Math.floor(this.rng.next() * 100); // 100-200
                         color = `rgb(30, ${g}, 30)`;
                     } else {
                         // Vary building size (max 30x50) and color
-                        width = 20 + Math.random() * 10; // 20-30
-                        height = 30 + Math.random() * 20; // 30-50
+                        width = 20 + this.rng.next() * 10; // 20-30
+                        height = 30 + this.rng.next() * 20; // 30-50
                         // Random earthy/building colors
-                        const r = 100 + Math.floor(Math.random() * 100);
-                        const g = 80 + Math.floor(Math.random() * 80);
-                        const b = 60 + Math.floor(Math.random() * 60);
+                        const r = 100 + Math.floor(this.rng.next() * 100);
+                        const g = 80 + Math.floor(this.rng.next() * 80);
+                        const b = 60 + Math.floor(this.rng.next() * 60);
                         color = `rgb(${r}, ${g}, ${b})`;
                     }
 
@@ -100,7 +107,7 @@ export class GameState {
                             type,
                             width,
                             height,
-                            seed: Math.random(),
+                            seed: this.rng.next(),
                             color
                         });
                     }
@@ -115,6 +122,10 @@ export class GameState {
 
     public getState(): GameStateData {
         return this.state;
+    }
+
+    public getTerrainChecksum(): number {
+        return this.state.terrain.reduce((acc, val, idx) => acc + val + idx, 0);
     }
 
     public update(updater: (state: GameStateData) => void) {
@@ -158,7 +169,7 @@ export class GameState {
             if (nextIndex === 0) {
                 state.round++;
                 // Change wind every round
-                state.wind.speed = (Math.random() * 2 - 1) * 10; // -10 to 10
+                state.wind.speed = (this.rng.next() * 2 - 1) * 10; // -10 to 10
             }
         });
     }

@@ -11,15 +11,33 @@ export class PhysicsEngine {
         this.renderer = renderer;
     }
 
+    private accumulator: number = 0;
+    private readonly fixedDt: number = 1 / 60;
+
     public update(state: GameStateData, deltaTime: number) {
+        this.accumulator += deltaTime;
+
+        // Limit accumulator to avoid spiral of death
+        if (this.accumulator > 0.25) this.accumulator = 0.25;
+
+        while (this.accumulator >= this.fixedDt) {
+            this.updatePhysicsStep(state, this.fixedDt);
+            this.accumulator -= this.fixedDt;
+        }
+
+        // Interpolation could be added here for smoother rendering, 
+        // but for now we just render the state as is.
+
+        this.updateExplosions(state, deltaTime); // Explosions are visual, can use variable dt
+    }
+
+    private updatePhysicsStep(state: GameStateData, dt: number) {
         const subSteps = 4;
-        const subDt = deltaTime / subSteps;
+        const subDt = dt / subSteps;
 
         for (let i = 0; i < subSteps; i++) {
             this.updateProjectiles(state, subDt);
         }
-
-        this.updateExplosions(state, deltaTime);
     }
 
     private updateExplosions(state: GameStateData, dt: number) {

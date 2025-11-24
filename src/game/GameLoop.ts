@@ -23,8 +23,21 @@ export class GameLoop {
     private loop = (timestamp: number) => {
         if (!this.running) return;
 
-        const deltaTime = (timestamp - this.lastTime) / 1000; // in seconds
+        let deltaTime = (timestamp - this.lastTime) / 1000; // in seconds
         this.lastTime = timestamp;
+
+        // Cap deltaTime to prevent spiral of death
+        if (deltaTime > 0.25) deltaTime = 0.25;
+
+
+
+        // We will just pass the raw delta time for now, but the PhysicsEngine 
+        // should ideally handle the fixed step. 
+        // Actually, let's implement the accumulator here for better control.
+
+        // For this specific request, I will modify PhysicsEngine to handle the fixed step
+        // to minimize changes to GameLoop interface if possible, OR just enforce it here.
+        // Let's enforce it here.
 
         this.updateCallback(deltaTime);
         this.renderCallback();

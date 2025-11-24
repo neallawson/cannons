@@ -10,3 +10,10 @@ Here are some of the central features:
 - Use 2d graphics for the views of the player's castles and the valley in between.
 - The angle and power of the cannon should be sensitive, and the flags at both locations should fly in a manner that indicates the wind speed.
 - The wind speed can vary between the two castles and should be taken into account for the projectile's flight, thus making the shots less repeatable and slightly more unpredictable.
+
+
+
+----------------
+Oh, and I thought of an elegant way to handle the mismatch between window sizes in 2-player mode: have both clients send their max screen size,
+and the higher-res client has to either scale to that resolution or create a border around a window of that size, centered, for the matching
+game play area.
