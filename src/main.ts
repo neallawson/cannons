@@ -33,23 +33,23 @@ gameState.update(() => {
 
   const player1: Player = {
     id: 'p1',
-    name: 'Player 1',
-    color: 'red',
+    name: 'Red Team',
+    color: '#FF0000', // Bright Red
     castlePosition: { x: p1X, y: 0 }, // Y will be set by addPlayer
     cannonAngle: 45,
     health: 100,
-    wins: parseInt(localStorage.getItem('p1_wins') || '0'),
+    wins: parseInt(sessionStorage.getItem('p1_wins') || '0'),
     isMyTurn: true,
   };
 
   const player2: Player = {
     id: 'p2',
-    name: 'Player 2',
-    color: 'blue',
+    name: 'Blue Team',
+    color: '#0066FF', // Bright Blue
     castlePosition: { x: p2X, y: 0 }, // Y will be set by addPlayer
     cannonAngle: 135,
     health: 100,
-    wins: parseInt(localStorage.getItem('p2_wins') || '0'),
+    wins: parseInt(sessionStorage.getItem('p2_wins') || '0'),
     isMyTurn: false,
   };
 
@@ -191,7 +191,7 @@ gameState.subscribe(state => {
     // Update Score
     if (winner) {
       winner.wins++;
-      localStorage.setItem(`${winner.id}_wins`, winner.wins.toString());
+      sessionStorage.setItem(`${winner.id}_wins`, winner.wins.toString());
     }
 
     // Create Game Over Overlay

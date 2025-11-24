@@ -354,8 +354,10 @@ export class Renderer {
     }
 
     private drawProjectiles(state: GameStateData) {
-        this.ctx.fillStyle = '#000';
         state.projectiles.forEach(proj => {
+            const owner = state.players.find(p => p.id === proj.ownerId);
+            this.ctx.fillStyle = owner ? owner.color : '#000';
+
             this.ctx.beginPath();
             this.ctx.arc(proj.position.x, proj.position.y, 5, 0, Math.PI * 2);
             this.ctx.fill();
@@ -373,11 +375,15 @@ export class Renderer {
             this.ctx.fillText(`Turn: ${currentPlayer.name} `, 20, 90);
         }
 
-        // Scores
-        const p1 = state.players.find(p => p.id === 'p1');
-        const p2 = state.players.find(p => p.id === 'p2');
-        if (p1 && p2) {
-            this.ctx.fillText(`Score: ${p1.wins} - ${p2.wins} `, 20, 120);
-        }
+        // Scores (Leaderboard)
+        const sortedPlayers = [...state.players].sort((a, b) => b.wins - a.wins);
+
+        this.ctx.font = '16px Arial';
+        let y = 120;
+        sortedPlayers.forEach((p, index) => {
+            this.ctx.fillStyle = p.color;
+            this.ctx.fillText(`${index + 1}. ${p.name} - ${p.wins}`, 20, y);
+            y += 25;
+        });
     }
 }
