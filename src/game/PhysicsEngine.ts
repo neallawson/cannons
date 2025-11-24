@@ -26,9 +26,24 @@ export class PhysicsEngine {
         state.explosions.forEach(exp => {
             exp.elapsed += dt;
             exp.particles.forEach(p => {
-                p.x += p.vx * dt * 60; // Scale for 60fps
-                p.y += p.vy * dt * 60;
+                let moveFactor = 1.0;
+                let rise = 0;
+
+                // Fireball logic (particles with growth)
+                if (p.growth) {
+                    // Expand for first half, shrink for second half
+                    moveFactor = (exp.elapsed < exp.duration / 2) ? 1.0 : -1.0;
+                    rise = -0.5; // Constant upward rise
+                }
+
+                p.x += p.vx * moveFactor * dt * 60; // Scale for 60fps
+                p.y += (p.vy * moveFactor + rise) * dt * 60;
                 p.life -= dt / exp.duration;
+
+                // Fireball growth
+                if (p.growth) {
+                    p.size += p.growth * dt * 60;
+                }
             });
         });
 
@@ -36,26 +51,86 @@ export class PhysicsEngine {
     }
 
     private createExplosion(state: GameStateData, x: number, y: number, type: 'small' | 'big') {
-        const particleCount = type === 'small' ? 20 : 100;
-        const duration = type === 'small' ? 0.5 : 4.0; // Increased to 4.0s for game over
+        const particleCount = type === 'small' ? 20 : 150; // More particles for big boom
+        const duration = type === 'small' ? 0.5 : 4.0;
         const particles = [];
 
         for (let i = 0; i < particleCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = (Math.random() * 2 + 1) * (type === 'small' ? 1 : 3);
-            const color = type === 'small'
-                ? `hsl(${Math.random() * 60 + 10}, 100%, 50%)` // Orange/Yellow
-                : `hsl(${Math.random() * 360}, 100%, 50%)`; // Rainbow for big win
 
-            particles.push({
-                x: x,
-                y: y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                color: color,
-                life: 1.0,
-                size: Math.random() * 3 + 1
-            });
+            let color;
+            let size;
+            let growth = 0;
+            let angle, speed;
+
+            if (type === 'small') {
+                angle = Math.random() * Math.PI * 2;
+                speed = Math.random() * 2 + 1;
+                color = `hsl(${Math.random() * 60 + 10}, 100%, 50%)`; // Orange/Yellow
+                size = Math.random() * 3 + 1;
+
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: color,
+                    life: 1.0,
+                    size: size
+                });
+            } else {
+                // Big Fireball: Roiling, slow moving, overlapping circles
+                // Position: Bottom-center slightly below impact (y + 10), but mostly rising up
+                const offsetX = (Math.random() - 0.5) * 40; // Cluster width
+                const offsetY = (Math.random() - 0.5) * 40 - 20; // Cluster height, shifted up
+
+                // Very slow velocity for "roiling" feel, not flying away
+                angle = Math.random() * Math.PI * 2;
+                speed = Math.random() * 0.5;
+
+                // Colors: Yellow (60) to Red (0), mostly Orange/Yellow
+                const hue = Math.random() * 40 + 10; // 10-50 (Red-Orange to Yellow)
+                color = `hsla(${hue}, 100%, 50%, ${Math.random() * 0.5 + 0.5})`;
+
+                size = Math.random() * 20 + 10; // Large circles
+                growth = Math.random() * 0.8 + 0.2; // Grow to create overlapping effect
+
+                particles.push({
+                    x: x + offsetX,
+                    y: y + offsetY + 10, // Start slightly lower
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed, // Pure expansion velocity (rise handled in update)
+                    color: color,
+                    life: 1.0,
+                    size: size,
+                    growth: growth
+                });
+            }
+        }
+
+        // Add Sparks/Fireworks for Big Explosion
+        if (type === 'big') {
+            const sparkCount = 100;
+            for (let i = 0; i < sparkCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                // Faster speed to extend beyond the fireball
+                const speed = Math.random() * 5 + 2;
+
+                // Bright colors: White, Gold, Yellow
+                const hue = Math.random() * 60; // Red to Yellow
+                const lightness = Math.random() * 50 + 50; // 50-100% lightness (Bright)
+                const color = `hsla(${hue}, 100%, ${lightness}%, 1.0)`;
+
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed, // Radiate outwards
+                    color: color,
+                    life: Math.random() * 0.5 + 0.5, // Shorter life than fireballs
+                    size: Math.random() * 2 + 1, // Small sparks
+                    growth: 0 // No growth
+                });
+            }
         }
 
         state.explosions.push({
