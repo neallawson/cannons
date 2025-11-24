@@ -240,7 +240,7 @@ export class PhysicsEngine {
                 player.health -= 10;
 
                 const damageRadius = 10; // Reduced to 10 as requested
-                const seed = Math.random();
+                const seed = proj.damageSeed;
 
                 state.damage.push({
                     x: proj.position.x,
@@ -326,7 +326,7 @@ export class PhysicsEngine {
         if (this.renderer.isTerrainSolid(Math.floor(proj.position.x), Math.floor(proj.position.y))) {
             // Hit Terrain -> Damage
             const damageRadius = 10; // Reduced to 10 as requested
-            const seed = Math.random();
+            const seed = proj.damageSeed;
 
             state.terrainDamage.push({
                 x: proj.position.x,
@@ -340,7 +340,7 @@ export class PhysicsEngine {
         return false;
     }
 
-    public fireProjectile(state: GameStateData, angle: number, power: number, ownerId: string) {
+    public fireProjectile(state: GameStateData, angle: number, power: number, ownerId: string, damageSeed: number) {
         const player = state.players.find(p => p.id === ownerId);
         if (!player) return;
 
@@ -365,7 +365,8 @@ export class PhysicsEngine {
             position: { x: spawnX, y: spawnY },
             velocity: velocity,
             ownerId: ownerId,
-            active: true
+            active: true,
+            damageSeed: damageSeed
         };
 
         state.projectiles.push(projectile);

@@ -25,6 +25,7 @@ export interface Projectile {
     velocity: Vector;
     ownerId: string;
     active: boolean;
+    damageSeed: number;
 }
 
 export interface Wind {

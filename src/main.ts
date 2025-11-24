@@ -106,7 +106,7 @@ const networkManager = new NetworkManager(
     if (data.type === 'fire') {
       log(`Net Fire: Ang ${data.angle} Pwr ${data.power}`);
       const otherPlayerId = myPlayerId === 'p1' ? 'p2' : 'p1';
-      physicsEngine.fireProjectile(gameState.getState(), data.angle, data.power, otherPlayerId);
+      physicsEngine.fireProjectile(gameState.getState(), data.angle, data.power, otherPlayerId, data.damageSeed);
       gameState.nextTurn();
     }
   },
@@ -131,12 +131,13 @@ const inputManager = new InputManager(
     // Local check: is it my turn?
     if (isMultiplayer && currentPlayerId !== myPlayerId) return;
 
-    physicsEngine.fireProjectile(gameState.getState(), angle, power, currentPlayerId);
+    const damageSeed = Math.random();
+    physicsEngine.fireProjectile(gameState.getState(), angle, power, currentPlayerId, damageSeed);
     gameState.nextTurn();
 
     if (isMultiplayer) {
       log(`Local Fire: Ang ${angle} Pwr ${power}`);
-      networkManager.sendData({ type: 'fire', angle, power });
+      networkManager.sendData({ type: 'fire', angle, power, damageSeed });
     }
   },
   (angle) => {
@@ -201,7 +202,8 @@ import { AIOpponent } from './game/AIOpponent';
 function setupGameSubscriptions() {
   // AI Opponent
   const aiOpponent = new AIOpponent('p2', (angle, power) => {
-    physicsEngine.fireProjectile(gameState.getState(), angle, power, 'p2');
+    const damageSeed = Math.random();
+    physicsEngine.fireProjectile(gameState.getState(), angle, power, 'p2', damageSeed);
     gameState.nextTurn();
   });
 
