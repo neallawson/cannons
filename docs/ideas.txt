@@ -29,9 +29,13 @@ game play area.
 
 ----------------------
 
-Yes, I ultimately want a weather system as you described. The wind will be the fundamental variable from that system that affects gameplay, but the visual effects and smooth weather events will add a level of realism to the game that is hard to match with any other technique.
-One last thing: I'd like a flag that visually shows the wind direction and approximate strength. We can print the actual wind speed value beside the flag for specificity to the user. So, in summary:
+Yes, I ultimately want a weather system as you described. The wind will be the fundamental variable from that system that affects gameplay, but the visual effects and
+smooth weather events will add a level of realism to the game that is hard to match with any other technique.
+One last thing: I'd like a flag that visually shows the wind direction and approximate strength. We can print the actual wind speed value beside the flag for specificity
+to the user. So, in summary:
 1. a generic Perlin noise module for wind and weather effects.
 2. a wind module for continuous wind fluctuation in a realistic manner.
-3. a weather module as already described.
-4. a flag to serve as a visual indicator for the wind direction and approximate strength. Probably should put this in the UI.
+3. a weather module as already described (to be implemented after the wind module is functional and tested).
+4. a flag to serve as a visual indicator for the wind direction and approximate strength. Probably should put the top center of the screen.
+5. In our game and physic loops, we should put the wind updates in the 1 hz loop as updating the wind more than once a second is unnecessary and 
+negatively impacts performance. When we get to weather, we'll update it even less frequently.

@@ -27,7 +27,6 @@ app.innerHTML = `
   <div id="ui-layer" style="position: absolute; bottom: 20px; left: 20px; color: white; font-family: sans-serif;">
     <label>Power: <input type="range" id="powerSlider" min="10" max="100" value="50"></label>
     <span id="powerValue">50</span>
-    <button id="fireBtn">Fire</button>
   </div>
   <div id="window-size" style="position: absolute; top: 10px; right: 10px; color: lime; font-family: monospace; font-size: 16px; background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;"></div>
 `;
@@ -200,7 +199,6 @@ const inputManager = new InputManager(
 // UI Controls
 const powerSlider = document.getElementById('powerSlider') as HTMLInputElement;
 const powerValue = document.getElementById('powerValue')!;
-const fireBtn = document.getElementById('fireBtn')!;
 
 
 // Multiplayer UI - Handled in HTML now
@@ -237,10 +235,6 @@ powerSlider.addEventListener('input', (e) => {
   const val = parseInt((e.target as HTMLInputElement).value);
   powerValue.innerText = val.toString();
   inputManager.setPower(val);
-});
-
-fireBtn.addEventListener('click', () => {
-  inputManager.fire();
 });
 
 import { AIOpponent } from './game/AIOpponent';
