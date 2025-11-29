@@ -11,7 +11,15 @@ Here are some of the central features:
 - The angle and power of the cannon should be sensitive, and the flags at both locations should fly in a manner that indicates the wind speed.
 - The wind speed can vary between the two castles and should be taken into account for the projectile's flight, thus making the shots less repeatable and slightly more unpredictable.
 
+----------------
+Starting the Game:
 
+1. Start the server:
+cd server
+node index.js
+
+2. Start the client:
+(from root): npm run dev
 
 ----------------
 Oh, and I thought of an elegant way to handle the mismatch between window sizes in 2-player mode: have both clients send their max screen size,

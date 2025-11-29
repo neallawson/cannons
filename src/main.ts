@@ -2,30 +2,37 @@ import './style.css';
 import { GameState } from './game/GameState';
 import { Renderer } from './game/Renderer';
 import { GameLoop } from './game/GameLoop';
-import type { Player } from './game/types';
+import type { Player, GameStateData } from './game/types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <canvas id="gameCanvas"></canvas>
+  
+  <div id="hud-panel">
+    <div id="game-info">
+        <div id="game-count" class="hud-row">Game: 1</div>
+        <div id="wind-display" class="hud-row">Wind: 0.0</div>
+        <div id="turn-display" class="hud-row">Turn: -</div>
+    </div>
+    <div id="score-board"></div>
+    
+    <div id="mp-label" style="text-align: center; font-size: 1.2rem; margin-top: 10px; color: #ddd; border-top: 1px solid #555; padding-top: 5px; cursor: pointer;">▶ 2-Player Mode</div>
+    <div id="mp-controls" style="border-top: none; margin-top: 5px; padding-top: 0; display: none;">
+        <a id="hostBtn" class="btn-link" style="text-align:center;">Host Game</a>
+        <a id="joinBtn" class="btn-link" style="text-align:center;">Join Game</a>
+        <div id="status" style="font-size: 0.9rem; color: #ccc; margin-top: 5px; text-align: center;"></div>
+    </div>
+  </div>
+
   <div id="ui-layer" style="position: absolute; bottom: 20px; left: 20px; color: white; font-family: sans-serif;">
     <label>Power: <input type="range" id="powerSlider" min="10" max="100" value="50"></label>
     <span id="powerValue">50</span>
     <button id="fireBtn">Fire</button>
   </div>
-  <div id="debug-log" style="position: absolute; top: 250px; left: 20px; color: yellow; font-family: monospace; font-size: 12px; background: rgba(0,0,0,0.5); padding: 10px; pointer-events: none; max-height: 200px; overflow: hidden;"></div>
   <div id="window-size" style="position: absolute; top: 10px; right: 10px; color: lime; font-family: monospace; font-size: 16px; background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;"></div>
 `;
 
 function log(msg: string) {
-  const el = document.getElementById('debug-log');
-  if (el) {
-    el.innerHTML += `<div>${msg}</div>`;
-    // Keep only last 10 lines
-    const lines = el.innerHTML.split('</div>');
-    if (lines.length > 10) {
-      el.innerHTML = lines.slice(lines.length - 11).join('</div>');
-    }
-  }
   console.log(msg);
 }
 
@@ -44,6 +51,30 @@ let isMultiplayer = false;
 let myPlayerId = 'p1';
 
 import { PhysicsEngine } from './game/PhysicsEngine';
+
+function updateHUD(state: GameStateData) {
+  // Game Count
+  const totalWins = state.players.reduce((sum: number, p: Player) => sum + p.wins, 0);
+  document.getElementById('game-count')!.innerText = `Game: ${totalWins + 1}`;
+
+  // Wind
+  document.getElementById('wind-display')!.innerText = `Wind: ${state.wind.speed.toFixed(1)}`;
+
+  // Turn
+  const currentPlayer = state.players.find(p => p.id === state.currentTurnPlayerId);
+  if (currentPlayer) {
+    const turnEl = document.getElementById('turn-display')!;
+    turnEl.innerHTML = `Turn: <span style="color: ${currentPlayer.color}">${currentPlayer.name}</span>`;
+    turnEl.style.color = 'white'; // Ensure label is white
+  }
+
+  // Scores
+  const sortedPlayers = [...state.players].sort((a, b) => b.wins - a.wins);
+  const scoreBoard = document.getElementById('score-board')!;
+  scoreBoard.innerHTML = sortedPlayers.map(p =>
+    `<div style="color: ${p.color}; font-size: 2.0rem;">${p.name}: ${p.wins}</div>`
+  ).join('');
+}
 
 function startGame(seed: number) {
   gameState = new GameState(LOGICAL_WIDTH, LOGICAL_HEIGHT, seed);
@@ -92,7 +123,10 @@ function startGame(seed: number) {
       });
     },
     () => {
-      renderer.render(gameState.getState());
+      const state = gameState.getState();
+      renderer.render(state);
+      updateHUD(state); // Update DOM HUD
+
       // Sync view offset and scale to input manager
       const offset = renderer.getViewOffset();
       const scale = renderer.getScale();
@@ -169,15 +203,19 @@ const powerValue = document.getElementById('powerValue')!;
 const fireBtn = document.getElementById('fireBtn')!;
 
 
-// Multiplayer UI
-const mpDiv = document.createElement('div');
-mpDiv.style.cssText = 'position: absolute; top: 160px; left: 20px; color: white; font-family: sans-serif;';
-mpDiv.innerHTML = `
-  <button id="hostBtn">Host Game</button>
-  <button id="joinBtn">Join Game</button>
-  <span id="status"></span>
-`;
-document.body.appendChild(mpDiv);
+// Multiplayer UI - Handled in HTML now
+const mpLabel = document.getElementById('mp-label')!;
+const mpControls = document.getElementById('mp-controls')!;
+
+mpLabel.addEventListener('click', () => {
+  if (mpControls.style.display === 'none') {
+    mpControls.style.display = 'flex';
+    mpLabel.innerText = '▼ 2-Player Mode';
+  } else {
+    mpControls.style.display = 'none';
+    mpLabel.innerText = '▶ 2-Player Mode';
+  }
+});
 
 document.getElementById('hostBtn')!.addEventListener('click', async () => {
   isMultiplayer = true;
@@ -255,9 +293,10 @@ function setupGameSubscriptions() {
         `;
 
       overlay.innerHTML = `
-          <h1>Game Over!</h1>
-          <h2>Winner: ${winnerName}</h2>
-          <button id="playAgainBtn" style="padding: 10px 20px; font-size: 20px; cursor: pointer;">Play Again</button>
+          <h1 style="font-size: 60px; color: #FFD700; text-shadow: 4px 4px #000;">Game Over!</h1>
+          <h2 style="font-size: 40px;">Winner: ${winnerName}</h2>
+          <h3 style="font-size: 30px;">in ${state.round} volleys</h3>
+          <button id="playAgainBtn" style="padding: 15px 30px; font-size: 30px; cursor: pointer; font-family: sans-serif;">Play Again</button>
         `;
 
       document.body.appendChild(overlay);

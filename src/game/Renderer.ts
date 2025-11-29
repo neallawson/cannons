@@ -110,8 +110,10 @@ export class Renderer {
         // Draw Explosions
         this.drawExplosions(state);
 
-        // Draw HUD
-        this.drawHUD(state);
+        // Draw Border around Logical Area
+        this.ctx.strokeStyle = '#FFD700'; // Gold border
+        this.ctx.lineWidth = 4;
+        this.ctx.strokeRect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
 
         // Restore context (remove translation/scale/clip)
         this.ctx.restore();
@@ -400,26 +402,5 @@ export class Renderer {
         });
     }
 
-    private drawHUD(state: GameStateData) {
-        this.ctx.fillStyle = '#000';
-        this.ctx.font = '20px Arial';
-        this.ctx.fillText(`Round: ${state.round} `, 20, 30);
-        this.ctx.fillText(`Wind: ${state.wind.speed.toFixed(1)} `, 20, 60);
 
-        const currentPlayer = state.players.find(p => p.id === state.currentTurnPlayerId);
-        if (currentPlayer) {
-            this.ctx.fillText(`Turn: ${currentPlayer.name} `, 20, 90);
-        }
-
-        // Scores (Leaderboard)
-        const sortedPlayers = [...state.players].sort((a, b) => b.wins - a.wins);
-
-        this.ctx.font = '16px Arial';
-        let y = 120;
-        sortedPlayers.forEach((p, index) => {
-            this.ctx.fillStyle = p.color;
-            this.ctx.fillText(`${index + 1}. ${p.name} - ${p.wins}`, 20, y);
-            y += 25;
-        });
-    }
 }
