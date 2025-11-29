@@ -30,12 +30,21 @@ export interface Projectile {
 
 export interface Wind {
     speed: number; // positive for right, negative for left
-    variability: number; // how much it changes per turn
+    angle: number; // Added angle
 }
 
 export interface GameConfig {
     gravity: number;
     windEnabled: boolean;
+}
+
+export type WeatherType = 'calm' | 'breezy' | 'stormy';
+
+export interface WeatherConfig {
+    name: string;
+    windRange: number;      // Max speed (+/-)
+    changeRate: number;     // Noise step per second
+    dampening: number;      // Interpolation decay (higher = faster/snappier)
 }
 
 export interface LandscapeFeature {

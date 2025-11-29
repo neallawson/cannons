@@ -1,5 +1,7 @@
-import type { GameStateData, Player } from './types';
+import type { GameStateData, Player, WeatherConfig } from './types';
 import { Random } from './Random';
+import { PerlinNoise } from './PerlinNoise';
+import { WEATHER_PRESETS } from './Weather';
 
 export class GameState {
     private state: GameStateData;
@@ -9,12 +11,49 @@ export class GameState {
     private width: number;
     private height: number;
 
+    private perlin: PerlinNoise;
+    private windTime: number = 0;
+    private windOffset: number = 0;
+    private targetWindSpeed: number = 0;
+
+    private currentWeather: WeatherConfig;
+
     constructor(width: number, height: number, seed: number) {
         this.width = width;
         this.height = height;
         this.rng = new Random(seed);
+        this.perlin = new PerlinNoise(seed);
+
+        // Default to Breezy for now
+        this.currentWeather = WEATHER_PRESETS.breezy;
+
+        // Random start offset for wind
+        this.windOffset = this.rng.next() * 1000;
+
+        // Initial wind
+        const startNoise = this.perlin.noise(this.windOffset, 0, 0);
+        this.targetWindSpeed = startNoise * this.currentWeather.windRange;
+
         this.state = this.getInitialState();
+        this.state.wind.speed = this.targetWindSpeed;
+
         this.generateTerrain(); // Generate initial terrain
+    }
+
+    public updateWind(dt: number) {
+        this.windTime += dt;
+
+        // Update target every 1.0 seconds (1Hz)
+        if (this.windTime >= 1.0) {
+            this.windTime -= 1.0;
+            this.windOffset += this.currentWeather.changeRate;
+            const noiseVal = this.perlin.noise(this.windOffset, 0, 0);
+            this.targetWindSpeed = noiseVal * this.currentWeather.windRange;
+        }
+
+        // Interpolate towards target
+        const decay = this.currentWeather.dampening;
+        this.state.wind.speed += (this.targetWindSpeed - this.state.wind.speed) * (1 - Math.exp(-decay * dt));
     }
 
     public getSeed(): number {
@@ -25,7 +64,7 @@ export class GameState {
         return {
             players: [],
             projectiles: [],
-            wind: { speed: 0, variability: 0.5 },
+            wind: { speed: 0, angle: 0 },
             currentTurnPlayerId: '',
             round: 1,
             terrain: [],
@@ -168,8 +207,7 @@ export class GameState {
             // Increment round if back to first player
             if (nextIndex === 0) {
                 state.round++;
-                // Change wind every round
-                state.wind.speed = (this.rng.next() * 2 - 1) * 10; // -10 to 10
+                // Wind is now updated continuously in the game loop
             }
         });
     }

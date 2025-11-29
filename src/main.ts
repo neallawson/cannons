@@ -118,6 +118,7 @@ function startGame(seed: number) {
   loop = new GameLoop(
     (dt) => {
       gameState.update(state => {
+        gameState.updateWind(dt); // Update wind (5Hz logic inside)
         physicsEngine.update(state, dt);
       });
     },
