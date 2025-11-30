@@ -115,7 +115,92 @@ export class Renderer {
         this.ctx.lineWidth = 4;
         this.ctx.strokeRect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
 
+        // Draw Wind Indicator
+        this.drawWindIndicator(state);
+
         // Restore context (remove translation/scale/clip)
+        this.ctx.restore();
+    }
+
+    private drawWindIndicator(state: GameStateData) {
+        const x = this.LOGICAL_WIDTH / 2;
+        const y = 60; // Moved down slightly to not overlap border
+        const windSpeed = state.wind.speed;
+        const windDir = Math.sign(windSpeed) || 1; // Default to right if 0
+        const windMag = Math.abs(windSpeed);
+
+        this.ctx.save();
+        this.ctx.translate(x, y);
+
+        // Draw Pole
+        this.ctx.fillStyle = '#8B4513'; // SaddleBrown
+        this.ctx.fillRect(-3, 0, 6, 80);
+
+        // Draw Flag
+        // Waving effect based on time
+        const time = performance.now() / 150;
+
+        this.ctx.fillStyle = '#FFD700'; // Gold/Yellow
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, 5); // Start at top of pole (slightly down)
+
+        // Flag dimensions
+        // Max width 120, min width 40
+        const flagWidth = Math.min(120, 40 + windMag * 5);
+        const segments = 10;
+        const step = flagWidth / segments;
+
+        // "Lift" factor: 0.0 at 0mph, 1.0 at 10mph+
+        // This controls how much the flag extends horizontally vs hangs down
+        const lift = Math.min(1.0, Math.max(0.1, windMag / 10.0));
+
+        // Draw top edge with wave
+        for (let i = 0; i <= segments; i++) {
+            const wx = i * step * windDir * lift; // Less horizontal extension at low wind
+
+            // Wave amplitude
+            // Almost 0 at low wind, grows with speed
+            const waveAmp = (i / segments) * (windMag * 1.5);
+            const waveFreq = 0.5 + windMag * 0.1;
+            const wave = Math.sin(time * waveFreq + i * 0.5) * waveAmp;
+
+            // Droop effect
+            // Increases as lift decreases. 
+            // At 0 lift, it hangs down (y increases by step * i)
+            const droop = (i * step) * (1 - lift) * 1.2;
+
+            this.ctx.lineTo(wx, 5 + wave + droop);
+        }
+
+        // Draw bottom edge
+        for (let i = segments; i >= 0; i--) {
+            const wx = i * step * windDir * lift;
+
+            const waveAmp = (i / segments) * (windMag * 1.5);
+            const waveFreq = 0.5 + windMag * 0.1;
+            const wave = Math.sin(time * waveFreq + i * 0.5) * waveAmp;
+
+            const droop = (i * step) * (1 - lift) * 1.2;
+
+            this.ctx.lineTo(wx, 45 + wave + droop); // Flag height 40
+        }
+
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // Flag Border (for visibility against sky)
+        this.ctx.strokeStyle = '#DAA520'; // GoldenRod
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+
+        // Draw Wind Speed Text
+        this.ctx.fillStyle = '#FFFFFF'; // White text
+        this.ctx.font = '42px sans-serif'; // Reduced size (approx 80% of 52px)
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        // Draw below the pole (pole is 80px tall)
+        this.ctx.fillText(`${windSpeed.toFixed(1)}`, 0, 100);
+
         this.ctx.restore();
     }
 

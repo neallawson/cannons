@@ -23,14 +23,10 @@ export class GameState {
         this.height = height;
         this.rng = new Random(seed);
         this.perlin = new PerlinNoise(seed);
+        this.currentWeather = WEATHER_PRESETS['breezy']; // Default to breezy
 
-        // Default to Breezy for now
-        this.currentWeather = WEATHER_PRESETS.breezy;
-
-        // Random start offset for wind
+        // Initialize wind with random offset to avoid starting at 0
         this.windOffset = this.rng.next() * 1000;
-
-        // Initial wind
         const startNoise = this.perlin.noise(this.windOffset, 0, 0);
         this.targetWindSpeed = startNoise * this.currentWeather.windRange;
 

@@ -12,7 +12,6 @@ app.innerHTML = `
       <div id="hud-panel">
         <div id="game-info">
             <div id="game-count" class="hud-row">Game: 1</div>
-            <div id="wind-display" class="hud-row">Wind: 0.0</div>
             <div id="turn-display" class="hud-row">Turn: -</div>
         </div>
         <div id="score-board"></div>
@@ -59,9 +58,6 @@ function updateHUD(state: GameStateData) {
   // Game Count
   const totalWins = state.players.reduce((sum: number, p: Player) => sum + p.wins, 0);
   document.getElementById('game-count')!.innerText = `Game: ${totalWins + 1}`;
-
-  // Wind
-  document.getElementById('wind-display')!.innerText = `Wind: ${state.wind.speed.toFixed(1)}`;
 
   // Turn
   const currentPlayer = state.players.find(p => p.id === state.currentTurnPlayerId);
