@@ -8,27 +8,31 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <canvas id="gameCanvas"></canvas>
   
-  <div id="hud-panel">
-    <div id="game-info">
-        <div id="game-count" class="hud-row">Game: 1</div>
-        <div id="wind-display" class="hud-row">Wind: 0.0</div>
-        <div id="turn-display" class="hud-row">Turn: -</div>
-    </div>
-    <div id="score-board"></div>
-    
-    <div id="mp-label" style="text-align: center; font-size: 1.2rem; margin-top: 10px; color: #ddd; border-top: 1px solid #555; padding-top: 5px; cursor: pointer;">▶ 2-Player Mode</div>
-    <div id="mp-controls" style="border-top: none; margin-top: 5px; padding-top: 0; display: none;">
-        <a id="hostBtn" class="btn-link" style="text-align:center;">Host Game</a>
-        <a id="joinBtn" class="btn-link" style="text-align:center;">Join Game</a>
-        <div id="status" style="font-size: 0.9rem; color: #ccc; margin-top: 5px; text-align: center;"></div>
-    </div>
-  </div>
+  <div id="game-ui-container">
+      <div id="hud-panel">
+        <div id="game-info">
+            <div id="game-count" class="hud-row">Game: 1</div>
+            <div id="wind-display" class="hud-row">Wind: 0.0</div>
+            <div id="turn-display" class="hud-row">Turn: -</div>
+        </div>
+        <div id="score-board"></div>
+        
+        <div id="mp-label" style="text-align: center; font-size: 1.2rem; margin-top: 10px; color: #ddd; border-top: 1px solid #555; padding-top: 5px; cursor: pointer;">▶ 2-Player Mode</div>
+        <div id="mp-controls" style="border-top: none; margin-top: 5px; padding-top: 0; display: none; flex-direction: column;">
+            <div style="display: flex; flex-direction: row; gap: 10px; width: 100%;">
+                <a id="hostBtn" class="btn-link" style="text-align:center; flex: 1;">Host Game</a>
+                <a id="joinBtn" class="btn-link" style="text-align:center; flex: 1;">Join Game</a>
+            </div>
+            <div id="status" style="font-size: 1.8rem; color: #ccc; margin-top: 5px; text-align: center;"></div>
+        </div>
+      </div>
 
-  <div id="ui-layer" style="position: absolute; bottom: 20px; left: 20px; color: white; font-family: sans-serif;">
-    <label>Power: <input type="range" id="powerSlider" min="10" max="100" value="50"></label>
-    <span id="powerValue">50</span>
+      <div id="ui-layer" style="position: absolute; bottom: 20px; left: 20px; color: white; font-family: sans-serif;">
+        <label>Power: <input type="range" id="powerSlider" min="10" max="100" value="50"></label>
+        <span id="powerValue">50</span>
+      </div>
+      <div id="window-size" style="position: absolute; top: 10px; right: 10px; color: lime; font-family: monospace; font-size: 16px; background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;"></div>
   </div>
-  <div id="window-size" style="position: absolute; top: 10px; right: 10px; color: lime; font-family: monospace; font-size: 16px; background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;"></div>
 `;
 
 function log(msg: string) {
@@ -118,8 +122,8 @@ function startGame(seed: number) {
   loop = new GameLoop(
     (dt) => {
       gameState.update(state => {
-        gameState.updateWind(dt); // Update wind (5Hz logic inside)
-        physicsEngine.update(state, dt);
+        // Wind is now updated inside PhysicsEngine's fixed step
+        physicsEngine.update(state, dt, (stepDt) => gameState.updateWind(stepDt));
       });
     },
     () => {
@@ -137,6 +141,24 @@ function startGame(seed: number) {
 
   loop.start();
   setupGameSubscriptions();
+
+  // Initial UI Layout
+  updateUILayout();
+  window.addEventListener('resize', updateUILayout);
+}
+
+function updateUILayout() {
+  if (!renderer) return;
+  const container = document.getElementById('game-ui-container');
+  if (container) {
+    const scale = renderer.getScale();
+    const offset = renderer.getViewOffset();
+
+    container.style.width = `${LOGICAL_WIDTH}px`;
+    container.style.height = `${LOGICAL_HEIGHT}px`;
+    container.style.transform = `translate(${offset.x}px, ${offset.y}px) scale(${scale})`;
+    container.style.transformOrigin = 'top left';
+  }
 }
 
 
@@ -219,17 +241,15 @@ mpLabel.addEventListener('click', () => {
 document.getElementById('hostBtn')!.addEventListener('click', async () => {
   isMultiplayer = true;
   myPlayerId = 'p1';
-  document.getElementById('status')!.innerText = 'Hosting...';
+  document.getElementById('status')!.innerText = 'Hosting... Waiting for peer...';
   await networkManager.hostGame();
-  document.getElementById('status')!.innerText = 'Host: Waiting for peer...';
 });
 
 document.getElementById('joinBtn')!.addEventListener('click', async () => {
   isMultiplayer = true;
   myPlayerId = 'p2';
-  document.getElementById('status')!.innerText = 'Joining...';
+  document.getElementById('status')!.innerText = 'Joining... Waiting for host...';
   await networkManager.joinGame();
-  document.getElementById('status')!.innerText = 'Joined!';
 });
 
 powerSlider.addEventListener('input', (e) => {
@@ -250,8 +270,21 @@ function setupGameSubscriptions() {
 
   // Game Over State
   let gameOverHandled = false;
+  let teamStatusUpdated = false;
 
   gameState.subscribe(state => {
+    // Update Multiplayer Status (Team Color)
+    if (isMultiplayer && myPlayerId && !teamStatusUpdated) {
+      const myPlayer = state.players.find(p => p.id === myPlayerId);
+      if (myPlayer) {
+        const statusEl = document.getElementById('status');
+        if (statusEl) {
+          statusEl.innerHTML = `You are the <span style="color: ${myPlayer.color}; font-weight: bold;">${myPlayer.name}</span>`;
+          teamStatusUpdated = true; // Only set once to avoid flickering or overwriting
+        }
+      }
+    }
+
     if (state.gameStatus === 'finished') {
       if (gameOverHandled) return;
 
@@ -305,14 +338,8 @@ function setupGameSubscriptions() {
 
     if (isMultiplayer) {
       inputManager.setMyTurn(state.currentTurnPlayerId === myPlayerId);
-      const checksum = gameState.getTerrainChecksum().toFixed(0);
-      document.getElementById('status')!.innerHTML = `
-        Player: ${myPlayerId} | Turn: ${state.currentTurnPlayerId}<br>
-        Player: ${myPlayerId} | Turn: ${state.currentTurnPlayerId}<br>
-        Seed: ${gameState.getSeed()} | Width: ${LOGICAL_WIDTH}<br>
-        Terrain Checksum: ${checksum}
-        Terrain Checksum: ${checksum}
-      `;
+      // Debug info removed
+
 
       // Update cannon position for aiming
       const myPlayer = state.players.find(p => p.id === myPlayerId);

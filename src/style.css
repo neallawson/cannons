@@ -96,3 +96,14 @@ input[type=range] {
   /* Equal width */
   text-align: center;
 }
+#game-ui-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none; /* Let clicks pass through to canvas */
+  overflow: hidden; /* Clip UI to game area */
+}
+
+#game-ui-container > * {
+  pointer-events: auto; /* Re-enable clicks for UI elements */
+}

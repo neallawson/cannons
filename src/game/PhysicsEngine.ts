@@ -14,13 +14,14 @@ export class PhysicsEngine {
     private accumulator: number = 0;
     private readonly fixedDt: number = 1 / 60;
 
-    public update(state: GameStateData, deltaTime: number) {
+    public update(state: GameStateData, deltaTime: number, updateWind: (dt: number) => void) {
         this.accumulator += deltaTime;
 
         // Limit accumulator to avoid spiral of death
         if (this.accumulator > 0.25) this.accumulator = 0.25;
 
         while (this.accumulator >= this.fixedDt) {
+            updateWind(this.fixedDt); // Update wind with fixed step
             this.updatePhysicsStep(state, this.fixedDt);
             this.accumulator -= this.fixedDt;
         }
