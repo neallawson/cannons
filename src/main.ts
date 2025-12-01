@@ -323,7 +323,7 @@ function setupGameSubscriptions() {
           <button id="playAgainBtn" style="padding: 15px 30px; font-size: 30px; cursor: pointer; font-family: sans-serif;">Play Again</button>
         `;
 
-      document.body.appendChild(overlay);
+      document.getElementById('game-ui-container')!.appendChild(overlay);
 
       document.getElementById('playAgainBtn')!.addEventListener('click', () => {
         window.location.reload();
