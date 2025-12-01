@@ -227,8 +227,9 @@ export class PhysicsEngine {
                 proj.active = false;
                 this.createExplosion(state, proj.position.x, proj.position.y, 'small');
                 this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big'); // Big boom on castle
-                state.gameStatus = 'finished';
-                state.winnerId = proj.ownerId;
+                player.health = 0; // Fatal hit
+                state.gameStatus = 'ending';
+                // Winner determined in GameState
                 return;
             }
 
@@ -261,8 +262,9 @@ export class PhysicsEngine {
                 const splashRadius = damageRadius + bodyRadius; // Overlap check
 
                 if (distSq < splashRadius * splashRadius) {
-                    state.gameStatus = 'finished';
-                    state.winnerId = proj.ownerId;
+                    player.health = 0; // Fatal splash
+                    state.gameStatus = 'ending';
+                    // Winner determined in GameState
                     this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
                     return;
                 }
@@ -284,16 +286,17 @@ export class PhysicsEngine {
                 const distY = proj.position.y - closestY;
 
                 if (distX * distX + distY * distY < damageRadius * damageRadius) {
-                    state.gameStatus = 'finished';
-                    state.winnerId = proj.ownerId;
+                    player.health = 0; // Fatal splash on magazine
+                    state.gameStatus = 'ending';
+                    // Winner determined in GameState
                     this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
                     return;
                 }
 
                 // Fallback win condition
                 if (player.health <= 0) {
-                    state.gameStatus = 'finished';
-                    state.winnerId = proj.ownerId;
+                    state.gameStatus = 'ending';
+                    // Winner determined in GameState
                     this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
                 }
                 return; // STOP here.
@@ -315,8 +318,9 @@ export class PhysicsEngine {
                 proj.active = false;
                 this.createExplosion(state, proj.position.x, proj.position.y, 'small');
                 this.createExplosion(state, player.castlePosition.x, player.castlePosition.y - 30, 'big');
-                state.gameStatus = 'finished';
-                state.winnerId = proj.ownerId;
+                player.health = 0; // Fatal magazine hit
+                state.gameStatus = 'ending';
+                // Winner determined in GameState
                 return;
             }
         }

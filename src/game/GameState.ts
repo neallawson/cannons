@@ -165,7 +165,45 @@ export class GameState {
 
     public update(updater: (state: GameStateData) => void) {
         updater(this.state);
+
+        // Check for Game Over Resolution
+        if (this.state.gameStatus === 'ending') {
+            // Wait for all projectiles and explosions to finish
+            if (this.state.projectiles.length === 0 && this.state.explosions.length === 0) {
+                this.resolveGameEnd();
+            }
+        }
+
         this.notifyListeners();
+    }
+
+    private resolveGameEnd() {
+        const p1 = this.state.players.find(p => p.id === 'p1');
+        const p2 = this.state.players.find(p => p.id === 'p2');
+
+        if (!p1 || !p2) return;
+
+        const p1Dead = p1.health <= 0;
+        const p2Dead = p2.health <= 0;
+
+        if (p1Dead && p2Dead) {
+            // DRAW - Both Win
+            this.state.winnerId = 'draw';
+            // Points are handled in main.ts based on winnerId, 
+            // but we might need to handle 'draw' specifically there.
+        } else if (p1Dead) {
+            this.state.winnerId = 'p2';
+        } else if (p2Dead) {
+            this.state.winnerId = 'p1';
+        } else {
+            // False alarm? Or maybe just one round of damage but no one died?
+            // If we are in 'ending' state, someone MUST have died or triggered it.
+            // If somehow everyone is alive, resume playing?
+            this.state.gameStatus = 'playing';
+            return;
+        }
+
+        this.state.gameStatus = 'finished';
     }
 
     public subscribe(listener: (state: GameStateData) => void) {

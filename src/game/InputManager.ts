@@ -12,6 +12,8 @@ export class InputManager {
     private viewOffset: { x: number, y: number } = { x: 0, y: 0 };
     private scale: number = 1;
 
+    private canFireFlag: boolean = true;
+
     constructor(canvas: HTMLCanvasElement, onFire: (angle: number, power: number) => void, onAngleChange: (angle: number) => void) {
         this.canvas = canvas;
         this.onFire = onFire;
@@ -23,6 +25,16 @@ export class InputManager {
     public setMyTurn(isMyTurn: boolean) {
         this.isMyTurn = isMyTurn;
     }
+
+    public setCanFire(enabled: boolean) {
+        console.log('InputManager: setCanFire', enabled);
+        this.canFireFlag = enabled;
+    }
+
+    public canFire(): boolean {
+        return this.canFireFlag;
+    }
+
 
     public setCannonPosition(x: number, y: number) {
         this.cannonPosition = { x, y };
@@ -39,7 +51,7 @@ export class InputManager {
     private setupListeners() {
         // Mouse movement for angle
         this.canvas.addEventListener('mousemove', (e) => {
-            if (!this.isMyTurn || !this.cannonPosition) return;
+            if (!this.isMyTurn || !this.canFire() || !this.cannonPosition) return;
 
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = (e.clientX - rect.left - this.viewOffset.x) / this.scale;
@@ -71,7 +83,7 @@ export class InputManager {
 
         // Click to fire (Left Click)
         this.canvas.addEventListener('mousedown', (e) => {
-            if (!this.isMyTurn) return;
+            if (!this.isMyTurn || !this.canFire()) return;
 
             // Left click is button 0
             if (e.button === 0) {
@@ -82,7 +94,7 @@ export class InputManager {
 
         // Spacebar to fire
         window.addEventListener('keydown', (e) => {
-            if (!this.isMyTurn) return;
+            if (!this.isMyTurn || !this.canFire()) return;
 
             if (e.code === 'Space') {
                 this.onFire(this.currentAngle, this.currentPower);
@@ -95,8 +107,10 @@ export class InputManager {
     }
 
     public fire() {
-        if (this.isMyTurn) {
+        if (this.isMyTurn && this.canFire()) {
             this.onFire(this.currentAngle, this.currentPower);
+        } else {
+            console.log('InputManager: Fire blocked. Turn:', this.isMyTurn, 'CanFire:', this.canFire);
         }
     }
 }

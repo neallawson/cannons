@@ -66,7 +66,7 @@ export interface GameStateData {
     terrain: number[]; // Simple heightmap for collision/initial generation
     landscape: LandscapeFeature[];
     terrainDamage: { x: number; y: number; r: number; seed: number }[];
-    gameStatus: 'waiting' | 'playing' | 'finished';
+    gameStatus: 'waiting' | 'playing' | 'ending' | 'finished';
     winnerId: string | null;
     damage: { x: number; y: number; r: number; seed: number }[];
     explosions: Explosion[];

@@ -2,6 +2,10 @@ import './style.css';
 import { GameState } from './game/GameState';
 import { Renderer } from './game/Renderer';
 import { GameLoop } from './game/GameLoop';
+import { PhysicsEngine } from './game/PhysicsEngine';
+import { NetworkManager } from './game/NetworkManager';
+import { InputManager } from './game/InputManager';
+import { AIOpponent } from './game/AIOpponent';
 import type { Player, GameStateData } from './game/types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -52,8 +56,6 @@ let loop: GameLoop;
 let isMultiplayer = false;
 let myPlayerId = 'p1';
 
-import { PhysicsEngine } from './game/PhysicsEngine';
-
 function updateHUD(state: GameStateData) {
   // Game Count
   const totalWins = state.players.reduce((sum: number, p: Player) => sum + p.wins, 0);
@@ -75,16 +77,24 @@ function updateHUD(state: GameStateData) {
   ).join('');
 }
 
+// Initialize Renderer globally
+renderer = new Renderer(canvas);
+window.addEventListener('resize', updateUILayout);
+
 function startGame(seed: number) {
+  // Clean up previous loop if exists
+  if (loop) {
+    loop.stop();
+  }
+
   gameState = new GameState(LOGICAL_WIDTH, LOGICAL_HEIGHT, seed);
-  renderer = new Renderer(canvas);
-  // renderer.setGameDimensions(gameWidth, gameHeight); // Removed
+  // renderer is reused
   physicsEngine = new PhysicsEngine(renderer);
 
   // Hill parameters (for X positioning only)
   const hillWidth = 300;
 
-  gameState.update(() => {
+  gameState.update((state) => {
     // Place castles on top of hills (X only, Y is handled by GameState)
     const p1X = hillWidth / 2;
     const p2X = LOGICAL_WIDTH - hillWidth / 2;
@@ -113,13 +123,24 @@ function startGame(seed: number) {
 
     gameState.addPlayer(player1);
     gameState.addPlayer(player2);
+
+    // Start the game!
+    state.gameStatus = 'playing';
   });
 
   loop = new GameLoop(
     (dt) => {
       gameState.update(state => {
+        const wasPlaying = state.gameStatus === 'playing';
         // Wind is now updated inside PhysicsEngine's fixed step
         physicsEngine.update(state, dt, (stepDt) => gameState.updateWind(stepDt));
+
+        if (wasPlaying && state.gameStatus === 'ending') {
+          if (inputManager.canFire()) {
+            console.log('Game Status Changed: playing -> ending. Disabling input.');
+            inputManager.setCanFire(false);
+          }
+        }
       });
     },
     () => {
@@ -140,7 +161,55 @@ function startGame(seed: number) {
 
   // Initial UI Layout
   updateUILayout();
-  window.addEventListener('resize', updateUILayout);
+}
+
+function resetGame(remoteSeed?: number) {
+  // If remoteSeed is provided, it means we received a restart signal from the host.
+  // We should always honor this and start immediately.
+  if (remoteSeed !== undefined) {
+    const overlay = document.getElementById('game-over-overlay');
+    if (overlay) overlay.remove();
+    startGame(remoteSeed);
+    return;
+  }
+
+  // If we are in multiplayer
+  if (isMultiplayer) {
+    // If we are the HOST ('p1')
+    if (myPlayerId === 'p1') {
+      const overlay = document.getElementById('game-over-overlay');
+      if (overlay) overlay.remove();
+
+      const newSeed = Date.now();
+      networkManager.sendData({ type: 'restart', seed: newSeed });
+      startGame(newSeed);
+    } else {
+      // If we are the CLIENT ('p2')
+      // Do NOT start a new game. Instead, update the overlay.
+      const playAgainBtn = document.getElementById('playAgainBtn');
+      if (playAgainBtn) {
+        playAgainBtn.style.display = 'none'; // Hide the button
+      }
+
+      // Create or update a status message in the overlay
+      let statusMsg = document.getElementById('game-over-status');
+      if (!statusMsg) {
+        statusMsg = document.createElement('h3');
+        statusMsg.id = 'game-over-status';
+        statusMsg.style.cssText = "font-size: 30px; margin-top: 20px; color: #ccc; font-family: sans-serif;";
+        const overlay = document.getElementById('game-over-overlay');
+        if (overlay) overlay.appendChild(statusMsg);
+      }
+      if (statusMsg) {
+        statusMsg.innerText = "Waiting for Host...";
+      }
+    }
+  } else {
+    // Single player reset
+    const overlay = document.getElementById('game-over-overlay');
+    if (overlay) overlay.remove();
+    startGame(Date.now());
+  }
 }
 
 function updateUILayout() {
@@ -157,10 +226,6 @@ function updateUILayout() {
   }
 }
 
-
-
-import { NetworkManager } from './game/NetworkManager';
-
 const networkManager = new NetworkManager(
   (data) => {
     if (data.type === 'fire') {
@@ -168,6 +233,9 @@ const networkManager = new NetworkManager(
       const otherPlayerId = myPlayerId === 'p1' ? 'p2' : 'p1';
       physicsEngine.fireProjectile(gameState.getState(), data.angle, data.power, otherPlayerId, data.damageSeed);
       gameState.nextTurn();
+    } else if (data.type === 'restart') {
+      console.log('Received restart signal');
+      resetGame(data.seed);
     }
   },
   (seed) => {
@@ -179,8 +247,6 @@ const networkManager = new NetworkManager(
   },
   log // Pass logger
 );
-
-import { InputManager } from './game/InputManager';
 
 const inputManager = new InputManager(
   canvas,
@@ -254,8 +320,6 @@ powerSlider.addEventListener('input', (e) => {
   inputManager.setPower(val);
 });
 
-import { AIOpponent } from './game/AIOpponent';
-
 function setupGameSubscriptions() {
   // AI Opponent
   const aiOpponent = new AIOpponent('p2', (angle, power) => {
@@ -292,17 +356,29 @@ function setupGameSubscriptions() {
       gameOverHandled = true;
       loop.stop();
 
-      const winner = state.players.find(p => p.id === state.winnerId);
-      const winnerName = winner?.name || 'Unknown';
+      let winnerName = 'Unknown';
 
-      // Update Score
-      if (winner) {
-        winner.wins++;
-        sessionStorage.setItem(`${winner.id}_wins`, winner.wins.toString());
+      if (state.winnerId === 'draw') {
+        winnerName = 'Draw';
+        // Increment wins for ALL players
+        state.players.forEach(p => {
+          p.wins++;
+          sessionStorage.setItem(`${p.id}_wins`, p.wins.toString());
+        });
+      } else {
+        const winner = state.players.find(p => p.id === state.winnerId);
+        winnerName = winner?.name || 'Unknown';
+
+        // Update Score
+        if (winner) {
+          winner.wins++;
+          sessionStorage.setItem(`${winner.id}_wins`, winner.wins.toString());
+        }
       }
 
       // Create Game Over Overlay
       const overlay = document.createElement('div');
+      overlay.id = 'game-over-overlay';
       overlay.style.cssText = `
           position: absolute;
           top: 0; left: 0; width: 100%; height: 100%;
@@ -317,20 +393,29 @@ function setupGameSubscriptions() {
         `;
 
       overlay.innerHTML = `
-          <h1 style="font-size: 60px; color: #FFD700; text-shadow: 4px 4px #000;">Game Over!</h1>
-          <h2 style="font-size: 40px;">Winner: ${winnerName}</h2>
+          <h1 style="font-size: 60px; color: #FFD700; text-shadow: 4px 4px #000;">${state.winnerId === 'draw' ? "It's a Draw!" : "Game Over!"}</h1>
+          <h2 style="font-size: 40px;">${state.winnerId === 'draw' ? "Both Teams Win!" : `Winner: ${winnerName}`}</h2>
           <h3 style="font-size: 30px;">in ${state.round} volleys</h3>
+          <div style="font-size: 30px; color: #aaa; margin-bottom: 10px;">MP: ${isMultiplayer} ID: ${myPlayerId}</div>
           <button id="playAgainBtn" style="padding: 15px 30px; font-size: 30px; cursor: pointer; font-family: sans-serif;">Play Again</button>
         `;
 
       document.getElementById('game-ui-container')!.appendChild(overlay);
 
-      document.getElementById('playAgainBtn')!.addEventListener('click', () => {
-        window.location.reload();
-      });
+      const btn = document.getElementById('playAgainBtn')!;
+      const handleReset = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        resetGame();
+      };
+      btn.addEventListener('touchstart', handleReset, { passive: false });
+      btn.addEventListener('click', handleReset);
 
       return;
     }
+
+    // Input Handling
+    inputManager.setCanFire(state.gameStatus === 'playing');
 
     if (isMultiplayer) {
       inputManager.setMyTurn(state.currentTurnPlayerId === myPlayerId);
