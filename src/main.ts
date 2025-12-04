@@ -231,6 +231,15 @@ const networkManager = new NetworkManager(
     if (data.type === 'fire') {
       log(`Net Fire: Ang ${data.angle} Pwr ${data.power}`);
       const otherPlayerId = myPlayerId === 'p1' ? 'p2' : 'p1';
+
+      // Update enemy cannon angle so it looks correct when firing
+      gameState.update(state => {
+        const player = state.players.find(p => p.id === otherPlayerId);
+        if (player) {
+          player.cannonAngle = data.angle;
+        }
+      });
+
       physicsEngine.fireProjectile(gameState.getState(), data.angle, data.power, otherPlayerId, data.damageSeed);
       gameState.nextTurn();
     } else if (data.type === 'restart') {
