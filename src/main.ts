@@ -226,11 +226,21 @@ function updateUILayout() {
   }
 }
 
+import { LobbyUI } from './game/LobbyUI';
+
+// Initialize Lobby UI
+let lobbyUI: LobbyUI;
+
 const networkManager = new NetworkManager(
   (data) => {
     if (data.type === 'fire') {
       log(`Net Fire: Ang ${data.angle} Pwr ${data.power}`);
       const otherPlayerId = myPlayerId === 'p1' ? 'p2' : 'p1';
+
+      // Sync Wind State from the shooter
+      if (data.windData) {
+        gameState.setWindState(data.windData);
+      }
 
       // Update enemy cannon angle so it looks correct when firing
       gameState.update(state => {
@@ -247,15 +257,22 @@ const networkManager = new NetworkManager(
       resetGame(data.seed);
     }
   },
-  (seed) => {
+  (seed, isHost) => {
     // Multiplayer Game Start
-    console.log(`Starting multiplayer game with seed: ${seed}`);
+    console.log(`Starting multiplayer game with seed: ${seed}, isHost: ${isHost}`);
+
+    isMultiplayer = true;
+    myPlayerId = isHost ? 'p1' : 'p2';
+
     // If we were in single player mode (default), stop it and restart with synced seed
     if (loop) loop.stop();
+    lobbyUI.hide(); // Hide Lobby
     startGame(seed);
   },
   log // Pass logger
 );
+
+lobbyUI = new LobbyUI(networkManager);
 
 const inputManager = new InputManager(
   canvas,
@@ -272,7 +289,8 @@ const inputManager = new InputManager(
 
     if (isMultiplayer) {
       log(`Local Fire: Ang ${angle} Pwr ${power}`);
-      networkManager.sendData({ type: 'fire', angle, power, damageSeed });
+      const windData = gameState.getWindState();
+      networkManager.sendData({ type: 'fire', angle, power, damageSeed, windData });
     }
   },
   (angle) => {
@@ -297,31 +315,28 @@ const powerValue = document.getElementById('powerValue')!;
 
 // Multiplayer UI - Handled in HTML now
 const mpLabel = document.getElementById('mp-label')!;
-const mpControls = document.getElementById('mp-controls')!;
+// const mpControls = document.getElementById('mp-controls')!;
 
 mpLabel.addEventListener('click', () => {
-  if (mpControls.style.display === 'none') {
-    mpControls.style.display = 'flex';
-    mpLabel.innerText = '▼ 2-Player Mode';
-  } else {
-    mpControls.style.display = 'none';
-    mpLabel.innerText = '▶ 2-Player Mode';
-  }
+  lobbyUI.show();
+  lobbyUI.showMainMenu(); // Ensure main menu is shown
 });
 
-document.getElementById('hostBtn')!.addEventListener('click', async () => {
-  isMultiplayer = true;
-  myPlayerId = 'p1';
-  document.getElementById('status')!.innerText = 'Hosting... Waiting for peer...';
-  await networkManager.hostGame();
-});
+// document.getElementById('hostBtn')!.addEventListener('click', async () => {
+//   isMultiplayer = true;
+//   myPlayerId = 'p1';
+//   document.getElementById('status')!.innerText = 'Hosting... Waiting for peer...';
+//   // await networkManager.hostGame();
+//   networkManager.createLobby("My Game", true);
+// });
 
-document.getElementById('joinBtn')!.addEventListener('click', async () => {
-  isMultiplayer = true;
-  myPlayerId = 'p2';
-  document.getElementById('status')!.innerText = 'Joining... Waiting for host...';
-  await networkManager.joinGame();
-});
+// document.getElementById('joinBtn')!.addEventListener('click', async () => {
+//   isMultiplayer = true;
+//   myPlayerId = 'p2';
+//   document.getElementById('status')!.innerText = 'Joining... Waiting for host...';
+//   // await networkManager.joinGame();
+//   networkManager.listLobbies();
+// });
 
 powerSlider.addEventListener('input', (e) => {
   const val = parseInt((e.target as HTMLInputElement).value);

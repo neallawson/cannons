@@ -3,28 +3,34 @@ export class NetworkManager {
     private ws: WebSocket | null = null;
     private peerConnection: RTCPeerConnection | null = null;
     private dataChannel: RTCDataChannel | null = null;
-    private onDataCallback: ((data: any) => void) | null = null;
-    private onGameStartCallback: ((seed: number) => void) | null = null;
-    private isHost: boolean = false;
 
-    constructor(onData: (data: any) => void, onGameStart: (seed: number) => void, _logger: (msg: string) => void) {
+    // Callbacks
+    private onDataCallback: ((data: any) => void) | null = null;
+    private onGameStartCallback: ((seed: number, isHost: boolean) => void) | null = null;
+
+    // Lobby Callbacks
+    public onLobbyList: ((games: any[]) => void) | null = null;
+    public onGameCreated: ((roomId: string, isPublic: boolean) => void) | null = null;
+    public onGameJoined: ((roomId: string, name: string) => void) | null = null;
+    public onPlayerJoined: (() => void) | null = null;
+    public onError: ((msg: string) => void) | null = null;
+
+    private isHost: boolean = false;
+    // @ts-ignore
+    private roomId: string | null = null;
+
+    constructor(onData: (data: any) => void, onGameStart: (seed: number, isHost: boolean) => void, _logger: (msg: string) => void) {
         this.onDataCallback = onData;
         this.onGameStartCallback = onGameStart;
-        // this.logger = logger;
+        this.connectSignaling();
     }
+
+    // ...
+
+
 
     private log(_msg: string) {
-        // if (this.logger) this.logger(msg);
-    }
-
-    public async hostGame() {
-        this.isHost = true;
-        this.connectSignaling();
-    }
-
-    public async joinGame() {
-        this.isHost = false;
-        this.connectSignaling();
+        // console.log(`[Net] ${msg}`);
     }
 
     private connectSignaling() {
@@ -33,11 +39,6 @@ export class NetworkManager {
 
         this.ws.onopen = () => {
             this.log('Connected to signaling server');
-            this.setupPeerConnection();
-            if (!this.isHost) {
-                this.log('Sending join-request');
-                this.sendSignaling({ type: 'join-request' });
-            }
         };
 
         this.ws.onmessage = async (event) => {
@@ -53,28 +54,79 @@ export class NetworkManager {
                 return;
             }
 
-            // this.log(`Signaling received: ${message.type}`);
+            this.handleMessage(message);
+        };
 
-            if (message.type === 'join-request') {
-                if (this.isHost) {
-                    this.log('Received join-request, creating offer');
-                    this.createOffer();
-                }
-            } else if (message.type === 'offer') {
-                if (!this.isHost) {
-                    this.log('Received offer');
-                    await this.handleOffer(message.offer);
-                }
-            } else if (message.type === 'answer') {
-                if (this.isHost) {
-                    this.log('Received answer');
-                    await this.handleAnswer(message.answer);
-                }
-            } else if (message.type === 'candidate') {
-                await this.handleCandidate(message.candidate);
-            }
+        this.ws.onclose = () => {
+            this.log('Disconnected from signaling server');
+            // Optional: Auto-reconnect logic could go here
         };
     }
+
+    private async handleMessage(message: any) {
+        switch (message.type) {
+            case 'game_list':
+                if (this.onLobbyList) this.onLobbyList(message.games);
+                break;
+            case 'game_created':
+                this.roomId = message.roomId;
+                this.isHost = true;
+                if (this.onGameCreated) this.onGameCreated(message.roomId, message.isPublic);
+                break;
+            case 'joined_game':
+                this.roomId = message.roomId;
+                this.isHost = false;
+                if (this.onGameJoined) this.onGameJoined(message.roomId, message.name);
+                // Client starts WebRTC setup immediately upon joining
+                // But wait! We need to wait for Host to send Offer? 
+                // Actually, standard flow: Host creates offer when they see player join.
+                break;
+            case 'player_joined':
+                if (this.isHost) {
+                    if (this.onPlayerJoined) this.onPlayerJoined();
+                    // Host initiates WebRTC
+                    this.setupPeerConnection();
+                    this.createOffer();
+                }
+                break;
+            case 'error':
+                if (this.onError) this.onError(message.message);
+                break;
+
+            // WebRTC Signaling
+            case 'offer':
+                if (!this.isHost) {
+                    // Client sets up PC when they receive Offer
+                    if (!this.peerConnection) this.setupPeerConnection();
+                    await this.handleOffer(message.offer);
+                }
+                break;
+            case 'answer':
+                if (this.isHost) {
+                    await this.handleAnswer(message.answer);
+                }
+                break;
+            case 'candidate':
+                await this.handleCandidate(message.candidate);
+                break;
+        }
+    }
+
+    // --- Lobby API ---
+
+    public createLobby(name: string, isPublic: boolean) {
+        this.sendSignaling({ type: 'create_game', name, isPublic });
+    }
+
+    public joinLobby(roomId: string) {
+        this.sendSignaling({ type: 'join_game', roomId });
+    }
+
+    public listLobbies() {
+        this.sendSignaling({ type: 'list_games' });
+    }
+
+    // --- WebRTC ---
 
     private setupPeerConnection() {
         this.log('Setting up PeerConnection');
@@ -97,7 +149,6 @@ export class NetworkManager {
             this.log('Creating DataChannel');
             this.dataChannel = this.peerConnection.createDataChannel('game');
             this.setupDataChannel(this.dataChannel);
-            // Host waits for join-request to create offer
         } else {
             this.peerConnection.ondatachannel = (event) => {
                 this.log('Received DataChannel');
@@ -131,13 +182,13 @@ export class NetworkManager {
                     this.log(`Sending START with seed ${seed}`);
                     this.sendData({ type: 'start', seed });
                     if (this.onGameStartCallback) {
-                        this.onGameStartCallback(seed);
+                        this.onGameStartCallback(seed, true);
                     }
                 }
             } else if (message.type === 'start') {
                 this.log(`Received START with seed ${message.seed}`);
                 if (this.onGameStartCallback) {
-                    this.onGameStartCallback(message.seed);
+                    this.onGameStartCallback(message.seed, false);
                 }
             } else if (this.onDataCallback) {
                 this.onDataCallback(message);

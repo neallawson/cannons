@@ -56,6 +56,22 @@ export class GameState {
         return this.rng.seed;
     }
 
+    public getWindState() {
+        return {
+            windTime: this.windTime,
+            windOffset: this.windOffset,
+            targetWindSpeed: this.targetWindSpeed,
+            currentSpeed: this.state.wind.speed
+        };
+    }
+
+    public setWindState(data: { windTime: number, windOffset: number, targetWindSpeed: number, currentSpeed: number }) {
+        this.windTime = data.windTime;
+        this.windOffset = data.windOffset;
+        this.targetWindSpeed = data.targetWindSpeed;
+        this.state.wind.speed = data.currentSpeed;
+    }
+
     private getInitialState(): GameStateData {
         return {
             players: [],
