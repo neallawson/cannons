@@ -1,12 +1,19 @@
 const WebSocket = require('ws');
+const express = require('express');
+const http = require('http');
+const path = require('path');
 
-const wss = new WebSocket.Server({ port: 8080, host: '0.0.0.0' });
+const app = express();
+const server = http.createServer(app);
+
+// Serve static files from 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+const wss = new WebSocket.Server({ server });
 
 // State
 const rooms = new Map(); // roomId -> { id, name, isPublic, host: ws, client: ws }
 const clientRooms = new Map(); // ws -> roomId
-
-console.log('Lobby Server started on port 8080');
 
 function generateRoomId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -138,4 +145,9 @@ wss.on('connection', (ws) => {
     }
     console.log('Client disconnected');
   });
+});
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Lobby Server started on port ${PORT}`);
 });

@@ -1,8 +1,19 @@
 export class NetworkManager {
-    private signalingUrl: string = `ws://${window.location.hostname}:8080`;
+    private signalingUrl: string = this.getSignalingUrl();
     private ws: WebSocket | null = null;
     private peerConnection: RTCPeerConnection | null = null;
     private dataChannel: RTCDataChannel | null = null;
+
+    private getSignalingUrl(): string {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // If dev server (Vite default), connect to local backend port
+        if (window.location.port === '5173') {
+            return `${protocol}//${window.location.hostname}:8080`;
+        }
+        // Otherwise (Production/Docker), connect to same host/port and path
+        // We ensure we preserve the path (e.g. /games/cannons/) for Caddy path matching
+        return `${protocol}//${window.location.host}${window.location.pathname}`;
+    }
 
     // Callbacks
     private onDataCallback: ((data: any) => void) | null = null;
