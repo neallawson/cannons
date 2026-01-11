@@ -20,7 +20,7 @@ app.innerHTML = `
         </div>
         <div id="score-board"></div>
         
-        <div id="mp-label" style="text-align: center; font-size: 1.2rem; margin-top: 10px; color: #ddd; border-top: 1px solid #555; padding-top: 5px; cursor: pointer;">▶ 2-Player Mode</div>
+        <div id="mp-label" style="text-align: center; font-size: 1.2rem; margin-top: 10px; color: #ddd; border-top: 1px solid #555; padding-top: 5px; cursor: pointer;">▶ Click for 2-Player Mode</div>
         <div id="mp-controls" style="border-top: none; margin-top: 5px; padding-top: 0; display: none; flex-direction: column;">
             <div style="display: flex; flex-direction: row; gap: 10px; width: 100%;">
                 <a id="hostBtn" class="btn-link" style="text-align:center; flex: 1;">Host Game</a>
@@ -77,8 +77,8 @@ function updateHUD(state: GameStateData) {
   ).join('');
 }
 
-// Initialize Renderer globally
-renderer = new Renderer(canvas);
+// Note: renderer is now initialized in startGame to ensure clean state
+// renderer = new Renderer(canvas); 
 window.addEventListener('resize', updateUILayout);
 
 function startGame(seed: number) {
@@ -87,8 +87,16 @@ function startGame(seed: number) {
     loop.stop();
   }
 
+  // Clean up previous renderer if exists to remove listeners
+  if (renderer) {
+    renderer.destroy();
+  }
+
+  // Initialize fresh Renderer
+  renderer = new Renderer(canvas);
+
   gameState = new GameState(LOGICAL_WIDTH, LOGICAL_HEIGHT, seed);
-  // renderer is reused
+  // renderer is passed to physics
   physicsEngine = new PhysicsEngine(renderer);
 
   // Hill parameters (for X positioning only)
@@ -267,6 +275,11 @@ const networkManager = new NetworkManager(
     // If we were in single player mode (default), stop it and restart with synced seed
     if (loop) loop.stop();
     lobbyUI.hide(); // Hide Lobby
+
+    // Update Toggle Label
+    const mpLabel = document.getElementById('mp-label');
+    if (mpLabel) mpLabel.innerText = "■ Stop Multiplayer";
+
     startGame(seed);
   },
   log // Pass logger
@@ -314,12 +327,34 @@ const powerValue = document.getElementById('powerValue')!;
 
 
 // Multiplayer UI - Handled in HTML now
+// Multiplayer UI - Handled in HTML now
 const mpLabel = document.getElementById('mp-label')!;
 // const mpControls = document.getElementById('mp-controls')!;
 
 mpLabel.addEventListener('click', () => {
-  lobbyUI.show();
-  lobbyUI.showMainMenu(); // Ensure main menu is shown
+  if (isMultiplayer) {
+    // Switch to Single Player
+    if (confirm("Stop multiplayer and return to single player?")) {
+      console.log('Switching to Single Player');
+      isMultiplayer = false;
+      myPlayerId = 'p1';
+
+      // Disconnect network/peer?
+      // NetworkManager doesn't have explicit disconnect() but we can ignore events
+      // Ideally we'd close the socket/peer in NetworkManager, but for now ignoring is fine.
+      // Or reload page? No, user wants seamless.
+
+      mpLabel.innerText = "▶ 2-Player Mode";
+      const statusEl = document.getElementById('status');
+      if (statusEl) statusEl.innerText = "";
+
+      resetGame(); // Starts single player game
+    }
+  } else {
+    // Switch to Multiplayer (Open Lobby)
+    lobbyUI.show();
+    lobbyUI.showMainMenu();
+  }
 });
 
 // document.getElementById('hostBtn')!.addEventListener('click', async () => {
