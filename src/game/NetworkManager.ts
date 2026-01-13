@@ -243,4 +243,18 @@ export class NetworkManager {
             this.dataChannel.send(JSON.stringify(data));
         }
     }
+
+    public resetConnection() {
+        if (this.dataChannel) {
+            this.dataChannel.close();
+            this.dataChannel = null;
+        }
+        if (this.peerConnection) {
+            this.peerConnection.close();
+            this.peerConnection = null;
+        }
+        this.roomId = null;
+        this.isHost = false;
+        this.log('Connection reset.');
+    }
 }

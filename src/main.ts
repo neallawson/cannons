@@ -263,6 +263,21 @@ const networkManager = new NetworkManager(
     } else if (data.type === 'restart') {
       console.log('Received restart signal');
       resetGame(data.seed);
+    } else if (data.type === 'player_left') {
+      console.log('Other player left the game.');
+      alert("The other player has left the game. Returning to Single Player.");
+
+      isMultiplayer = false;
+      myPlayerId = 'p1';
+
+      networkManager.resetConnection();
+
+      const mpLabel = document.getElementById('mp-label');
+      if (mpLabel) mpLabel.innerText = "▶ Click for 2-Player Mode";
+      const statusEl = document.getElementById('status');
+      if (statusEl) statusEl.innerText = "";
+
+      resetGame();
     }
   },
   (seed, isHost) => {
@@ -336,8 +351,14 @@ mpLabel.addEventListener('click', () => {
     // Switch to Single Player
     if (confirm("Stop multiplayer and return to single player?")) {
       console.log('Switching to Single Player');
+
+      // Notify peer before disconnecting
+      networkManager.sendData({ type: 'player_left' });
+
       isMultiplayer = false;
       myPlayerId = 'p1';
+
+      networkManager.resetConnection();
 
       // Disconnect network/peer?
       // NetworkManager doesn't have explicit disconnect() but we can ignore events
@@ -455,7 +476,6 @@ function setupGameSubscriptions() {
           <h1 style="font-size: 60px; color: #FFD700; text-shadow: 4px 4px #000;">${state.winnerId === 'draw' ? "It's a Draw!" : "Game Over!"}</h1>
           <h2 style="font-size: 40px;">${state.winnerId === 'draw' ? "Both Teams Win!" : `Winner: ${winnerName}`}</h2>
           <h3 style="font-size: 30px;">in ${state.round} volleys</h3>
-          <div style="font-size: 30px; color: #aaa; margin-bottom: 10px;">MP: ${isMultiplayer} ID: ${myPlayerId}</div>
           <button id="playAgainBtn" style="padding: 15px 30px; font-size: 30px; cursor: pointer; font-family: sans-serif;">Play Again</button>
         `;
 
