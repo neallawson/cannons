@@ -6,6 +6,7 @@ import { PhysicsEngine } from './game/PhysicsEngine';
 import { NetworkManager } from './game/NetworkManager';
 import { InputManager } from './game/InputManager';
 import { AIOpponent } from './game/AIOpponent';
+import { ModalManager } from './game/ModalManager';
 import type { Player, GameStateData } from './game/types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -31,8 +32,13 @@ app.innerHTML = `
       </div>
 
       <div id="ui-layer" style="position: absolute; bottom: 20px; left: 20px; color: white; font-family: sans-serif;">
-        <label>Power: <input type="range" id="powerSlider" min="10" max="100" value="50"></label>
+        <label>Power: 
+            <div id="power-container">
+                <input type="range" id="powerSlider" min="10" max="100" value="50">
+            </div>
+        </label>
         <span id="powerValue">50</span>
+        <span id="angle-display">Angle: 45°</span>
       </div>
       <div id="window-size" style="position: absolute; top: 10px; right: 10px; color: lime; font-family: monospace; font-size: 16px; background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;"></div>
   </div>
@@ -55,6 +61,7 @@ let loop: GameLoop;
 
 let isMultiplayer = false;
 let myPlayerId = 'p1';
+let maxPower = 55; // Default max power, can be upgraded later
 
 function updateHUD(state: GameStateData) {
   // Game Count
@@ -220,6 +227,62 @@ function resetGame(remoteSeed?: number) {
   }
 }
 
+
+function resetScoreboard() {
+  sessionStorage.setItem('p1_wins', '0');
+  sessionStorage.setItem('p2_wins', '0');
+}
+
+function enterSinglePlayerMode(notifyPeer: boolean = true) {
+  if (notifyPeer) {
+    networkManager.sendData({ type: 'player_left' });
+  }
+
+  isMultiplayer = false;
+  myPlayerId = 'p1';
+
+  networkManager.resetConnection();
+  resetScoreboard();
+
+  // Reset UI to default (Red/Left)
+  updatePlayerUI();
+
+  const mpLabel = document.getElementById('mp-label');
+  if (mpLabel) mpLabel.innerText = "▶ Click for 2-Player Mode";
+  const statusEl = document.getElementById('status');
+  if (statusEl) statusEl.innerText = "";
+
+  resetGame();
+}
+
+function enterMultiplayerMode(seed: number, isHost: boolean) {
+  console.log(`Starting multiplayer game with seed: ${seed}, isHost: ${isHost}`);
+
+  // If we were in single player mode (default), stop it
+  if (loop) loop.stop();
+
+  lobbyUI.hide();
+  modalManager.hide();
+
+  isMultiplayer = true;
+  myPlayerId = isHost ? 'p1' : 'p2';
+
+  resetScoreboard();
+
+  // Update Toggle Label
+  const mpLabel = document.getElementById('mp-label');
+  if (mpLabel) mpLabel.innerText = "■ Stop Multiplayer";
+
+  if (myPlayerId === 'p1') {
+    modalManager.showTemporaryMessage("You are the Red Team", 3);
+  } else {
+    modalManager.showTemporaryMessage("You are the Blue Team", 3);
+  }
+
+  updatePlayerUI();
+  startGame(seed);
+}
+
 function updateUILayout() {
   if (!renderer) return;
   const container = document.getElementById('game-ui-container');
@@ -238,6 +301,7 @@ import { LobbyUI } from './game/LobbyUI';
 
 // Initialize Lobby UI
 let lobbyUI: LobbyUI;
+const modalManager = new ModalManager();
 
 const networkManager = new NetworkManager(
   (data) => {
@@ -265,42 +329,30 @@ const networkManager = new NetworkManager(
       resetGame(data.seed);
     } else if (data.type === 'player_left') {
       console.log('Other player left the game.');
-      alert("The other player has left the game. Returning to Single Player.");
-
-      isMultiplayer = false;
-      myPlayerId = 'p1';
-
-      networkManager.resetConnection();
-
-      const mpLabel = document.getElementById('mp-label');
-      if (mpLabel) mpLabel.innerText = "▶ Click for 2-Player Mode";
-      const statusEl = document.getElementById('status');
-      if (statusEl) statusEl.innerText = "";
-
-      resetGame();
+      modalManager.showTemporaryMessage("The other player has left the game. Returning to Single Player.", 3);
+      enterSinglePlayerMode(false); // Don't notify peer, they already left
     }
   },
   (seed, isHost) => {
-    // Multiplayer Game Start
-    console.log(`Starting multiplayer game with seed: ${seed}, isHost: ${isHost}`);
-
-    isMultiplayer = true;
-    myPlayerId = isHost ? 'p1' : 'p2';
-
-    // If we were in single player mode (default), stop it and restart with synced seed
-    if (loop) loop.stop();
-    lobbyUI.hide(); // Hide Lobby
-
-    // Update Toggle Label
-    const mpLabel = document.getElementById('mp-label');
-    if (mpLabel) mpLabel.innerText = "■ Stop Multiplayer";
-
-    startGame(seed);
-  },
-  log // Pass logger
+    enterMultiplayerMode(seed, isHost);
+  }, log // Pass logger
 );
 
 lobbyUI = new LobbyUI(networkManager);
+
+function updatePlayerUI() {
+  const uiLayer = document.getElementById('ui-layer');
+  if (!uiLayer) return;
+
+  // Reset classes
+  uiLayer.classList.remove('ui-right', 'theme-blue', 'theme-red');
+
+  if (myPlayerId === 'p2') {
+    uiLayer.classList.add('ui-right', 'theme-blue');
+  } else {
+    uiLayer.classList.add('theme-red');
+  }
+}
 
 const inputManager = new InputManager(
   canvas,
@@ -322,13 +374,61 @@ const inputManager = new InputManager(
     }
   },
   (angle) => {
+    // Update Angle Display locally always
+    const angleDisplay = document.getElementById('angle-display');
+    if (angleDisplay) angleDisplay.innerText = `Angle: ${Math.round(angle)}°`;
+
     if (!gameState) return;
-    const currentPlayerId = gameState.getState().currentTurnPlayerId;
-    // Only update if it's my turn
-    if (isMultiplayer && currentPlayerId !== myPlayerId) return;
+
+    // Broadcast angle even if it's not my turn?
+    // User requested: "Allow both teams to "move" their cannon at all times"
+    // and is confusing when it gets locked.
+    // So we should update our local state and broadcast.
+    // However, GameState logic might restrict it?
+    // The previous logic was: if (isMultiplayer && currentPlayerId !== myPlayerId) return;
+    // We want to remove that restriction for MOVEMENT.
+
+    // BUT we must filter so we only update OUR player.
+    // Ensure we are updating the correct player in GameState
+    if (isMultiplayer) {
+      // Network update
+      // Throttle network updates? InputManager calls this on mousemove.
+      // NetworkManager doesn't have built-in throttling shown here, but let's assume it's okay for now or minimal bandwidth.
+      // We should send 'angle_update' or just use the Fire packet? 
+      // Wait, the current network system doesn't seem to have a dedicated continuous angle sync packet in `NetworkManager.ts` usage here?
+      // Looking at Main.ts:321, we send 'fire'.
+      // Looking at Main.ts:243, we handle 'fire', 'restart', 'player_left'.
+      // We DON'T have an 'angle' packet type yet!
+
+      // The user said: "Allow both teams to "move" their cannon at all times... confusing when it gets locked."
+      // This implies visual movement.
+      // If we want the OTHER player to see it, we need to sync it.
+      // The current code didn't sync angle until FIRE?
+      // Let's check InputManager callbacks.
+      // Oh, InputManager calls `onAngleChange`.
+      // Check line 320: `gameState.update(...)`
+      // It updates the LOCAL gameState.
+      // It DOES NOT send network data.
+
+      // So previously, you only saw the enemy move when they fired?
+      // "Net Fire: Ang ... Pwr ..." -> "Update enemy cannon angle" (Line 253)
+      // Yes.
+
+      // The user request "Allow both teams to "move" their cannon at all times" implies LOCAL movement primarily so it doesn't feel stuck.
+      // "and is confusing when it gets locked."
+      // It doesn't explicitly demand "Sync movement in real-time".
+      // Given "small changes", I will implement LOCAL movement freedom.
+      // Syncing real-time angle would require a new packet type and interval.
+      // I will enabling LOCAL movement for now.
+
+      // So, simply REMOVE the check "currentPlayerId !== myPlayerId".
+      // But wait, we must make sure we update *my* player, not the current turn player if it's not me.
+    }
 
     gameState.update(state => {
-      const player = state.players.find(p => p.id === currentPlayerId);
+      // Find MY player, not necessarily current turn player
+      const targetPlayerId = isMultiplayer ? myPlayerId : state.currentTurnPlayerId;
+      const player = state.players.find(p => p.id === targetPlayerId);
       if (player) {
         player.cannonAngle = angle;
       }
@@ -349,28 +449,10 @@ const mpLabel = document.getElementById('mp-label')!;
 mpLabel.addEventListener('click', () => {
   if (isMultiplayer) {
     // Switch to Single Player
-    if (confirm("Stop multiplayer and return to single player?")) {
+    modalManager.showConfirmation("Stop multiplayer and return to single player?", () => {
       console.log('Switching to Single Player');
-
-      // Notify peer before disconnecting
-      networkManager.sendData({ type: 'player_left' });
-
-      isMultiplayer = false;
-      myPlayerId = 'p1';
-
-      networkManager.resetConnection();
-
-      // Disconnect network/peer?
-      // NetworkManager doesn't have explicit disconnect() but we can ignore events
-      // Ideally we'd close the socket/peer in NetworkManager, but for now ignoring is fine.
-      // Or reload page? No, user wants seamless.
-
-      mpLabel.innerText = "▶ 2-Player Mode";
-      const statusEl = document.getElementById('status');
-      if (statusEl) statusEl.innerText = "";
-
-      resetGame(); // Starts single player game
-    }
+      enterSinglePlayerMode(true); // Notify peer
+    });
   } else {
     // Switch to Multiplayer (Open Lobby)
     lobbyUI.show();
@@ -395,8 +477,20 @@ mpLabel.addEventListener('click', () => {
 // });
 
 powerSlider.addEventListener('input', (e) => {
-  const val = parseInt((e.target as HTMLInputElement).value);
-  powerValue.innerText = val.toString();
+  let val = parseInt((e.target as HTMLInputElement).value);
+
+  // Cap at maxPower
+  if (val > maxPower) {
+    val = maxPower;
+    (e.target as HTMLInputElement).value = maxPower.toString();
+  }
+
+  if (val === maxPower) {
+    powerValue.innerText = `${val} (MAX)`;
+  } else {
+    powerValue.innerText = val.toString();
+  }
+
   inputManager.setPower(val);
 });
 

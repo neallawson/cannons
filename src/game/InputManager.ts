@@ -51,7 +51,9 @@ export class InputManager {
     private setupListeners() {
         // Mouse movement for angle
         this.canvas.addEventListener('mousemove', (e) => {
-            if (!this.isMyTurn || !this.canFire() || !this.cannonPosition) return;
+            if (!this.cannonPosition) return;
+            // Removed !this.isMyTurn check to allow looking around always
+
 
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = (e.clientX - rect.left - this.viewOffset.x) / this.scale;

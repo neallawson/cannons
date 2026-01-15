@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffff00"/>
+      <stop offset="100%" stop-color="#ff0000"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Rocket Body -->
+  <path d="M50 10 Q 50 5 50 5 Q 80 40 80 70 A 10 10 0 0 1 20 70 Q 20 40 50 10 Z" fill="#eee" stroke="#333" stroke-width="2"/>
+  
+  <!-- Window -->
+  <circle cx="50" cy="45" r="10" fill="#87CEEB" stroke="#333" stroke-width="2"/>
+  
+  <!-- Fins -->
+  <path d="M20 70 L 10 90 L 30 85 Z" fill="#d32f2f" stroke="#333" stroke-width="2"/>
+  <path d="M80 70 L 90 90 L 70 85 Z" fill="#d32f2f" stroke="#333" stroke-width="2"/>
+  <path d="M50 70 L 45 90 L 55 90 Z" fill="#d32f2f" stroke="#333" stroke-width="2"/>
+
+  <!-- Flame -->
+  <path d="M45 92 Q 50 110 55 92 Q 50 100 45 92" fill="url(#flame)" filter="url(#glow)"/>
+</svg>

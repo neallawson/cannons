@@ -96,14 +96,110 @@ input[type=range] {
   /* Equal width */
   text-align: center;
 }
+
 #game-ui-container {
   position: absolute;
   top: 0;
   left: 0;
-  pointer-events: none; /* Let clicks pass through to canvas */
-  overflow: hidden; /* Clip UI to game area */
+  pointer-events: none;
+  /* Let clicks pass through to canvas */
+  overflow: hidden;
+  /* Clip UI to game area */
 }
 
-#game-ui-container > * {
-  pointer-events: auto; /* Re-enable clicks for UI elements */
+#game-ui-container>* {
+  pointer-events: auto;
+  /* Re-enable clicks for UI elements */
+}
+
+/* Modals */
+#modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: flex;
+  /* Hidden by default via JS */
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-box {
+  background: rgba(20, 20, 20, 0.95);
+  border: 4px solid #FFD700;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 500px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+  font-family: sans-serif;
+  color: white;
+}
+
+.modal-message {
+  font-size: 2rem;
+  margin-bottom: 20px;
+  white-space: pre-wrap;
+}
+
+.modal-button {
+  background: #FFD700;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 30px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.modal-button:hover {
+  background: #fff;
+}
+
+/* UI Layer Colors */
+.theme-red {
+  color: #FF4444;
+  /* Red tint */
+}
+
+.theme-blue {
+  color: #4488FF;
+  /* Blue tint */
+}
+
+/* Right-aligned UI for Blue Player */
+.ui-right {
+  left: auto !important;
+  right: 20px !important;
+  text-align: right;
+}
+
+/* Angle Indicator */
+#angle-display {
+  font-family: monospace;
+  font-size: 1.5rem;
+  color: #FFD700;
+  margin-left: 15px;
+  vertical-align: middle;
+}
+
+/* Power Bar Container */
+#power-container {
+  display: inline-block;
+  position: relative;
+  vertical-align: middle;
+  height: 20px;
+  width: 200px;
+  /* Or appropriate width */
+}
+
+#powerSlider {
+  width: 200px;
+  position: relative;
+  z-index: 2;
 }
