@@ -376,7 +376,18 @@ const inputManager = new InputManager(
   (angle) => {
     // Update Angle Display locally always
     const angleDisplay = document.getElementById('angle-display');
-    if (angleDisplay) angleDisplay.innerText = `Angle: ${Math.round(angle)}°`;
+    if (angleDisplay) {
+      let displayAngle = Math.round(angle);
+      if (myPlayerId === 'p2') {
+        displayAngle = 180 - displayAngle;
+      } else {
+        // Red player (p1)
+        if (displayAngle > 180) {
+          displayAngle -= 360;
+        }
+      }
+      angleDisplay.innerText = `Angle: ${displayAngle}°`;
+    }
 
     if (!gameState) return;
 
