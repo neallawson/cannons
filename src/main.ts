@@ -21,7 +21,7 @@ app.innerHTML = `
         </div>
         <div id="score-board"></div>
         
-        <div id="mp-label" style="text-align: center; font-size: 1.2rem; margin-top: 10px; color: #ddd; border-top: 1px solid #555; padding-top: 5px; cursor: pointer;">▶ Click for 2-Player Mode</div>
+        <div id="mp-label" style="text-align: center; margin-top: 10px; color: #FFD700; border-top: 1px solid #555; padding-top: 5px; cursor: pointer;">▶ Click for 2-Player Mode</div>
         <div id="mp-controls" style="border-top: none; margin-top: 5px; padding-top: 0; display: none; flex-direction: column;">
             <div style="display: flex; flex-direction: row; gap: 10px; width: 100%;">
                 <a id="hostBtn" class="btn-link" style="text-align:center; flex: 1;">Host Game</a>
@@ -74,6 +74,7 @@ let loop: GameLoop;
 let isMultiplayer = false;
 let myPlayerId = 'p1';
 let maxPower = 55; // Default max power, can be upgraded later
+let isMobileMode = false; // Track if mobile mode is active
 
 function updateHUD(state: GameStateData) {
   // Game Count
@@ -91,8 +92,9 @@ function updateHUD(state: GameStateData) {
   // Scores
   const sortedPlayers = [...state.players].sort((a, b) => b.wins - a.wins);
   const scoreBoard = document.getElementById('score-board')!;
+  const scoreFontSize = isMobileMode ? '4.0rem' : '3.0rem'; // Mobile: 4.0rem (double), Desktop: 3.0rem (50% increase)
   scoreBoard.innerHTML = sortedPlayers.map(p =>
-    `<div style="color: ${p.color}; font-size: 2.0rem;">${p.name}: ${p.wins}</div>`
+    `<div style="color: ${p.color}; font-size: ${scoreFontSize};">${p.name}: ${p.wins}</div>`
   ).join('');
 }
 
@@ -197,10 +199,13 @@ function startGame(seed: number) {
   if (isTouchDevice && isSmallScreen) {
     console.log("Mobile Mode Detected. Engaging Bottom Control Bar.");
 
-    // 1. Alert InputManager
+    // 1. Set Mobile Mode Flag
+    isMobileMode = true;
+
+    // 2. Alert InputManager
     inputManager.setMobileMode(true);
 
-    // 2. Hide Desktop UI
+    // 3. Hide Desktop UI
     const desktopUI = document.getElementById('ui-layer');
     if (desktopUI) desktopUI.style.display = 'none';
 

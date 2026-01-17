@@ -62,8 +62,8 @@ input[type=range] {
 }
 
 .hud-row {
-  font-size: 2.2rem;
-  /* Increased font size (approx 20% bigger than 1.8rem) */
+  font-size: 3.0rem;
+  /* Match scoreboard size for consistency */
   margin-bottom: 2px;
 }
 
@@ -74,6 +74,11 @@ input[type=range] {
   /* border-top removed to reduce visual clutter if desired, but keeping logic simple */
   /* border-top: 1px solid #555; */
   padding-top: 5px;
+}
+
+#mp-label {
+  font-size: 3.0rem;
+  /* Match scoreboard size for consistency */
 }
 
 #mp-controls {
