@@ -92,9 +92,8 @@ export class Renderer {
         // We center it horizontally
         this.viewOffset.x = Math.floor((this.width - (this.LOGICAL_WIDTH * this.scale)) / 2);
 
-        // Align vertically to the BOTTOM of the available space
-        // This pushes any extra aspect-ratio space to the TOP (more sky), which looks better.
-        this.viewOffset.y = Math.floor(availableHeight - (this.LOGICAL_HEIGHT * this.scale));
+        // Center vertically in the available space
+        this.viewOffset.y = Math.floor((availableHeight - (this.LOGICAL_HEIGHT * this.scale)) / 2);
 
         // Resize offscreen canvases to LOGICAL dimensions
         this.castleCanvas.width = this.LOGICAL_WIDTH;
