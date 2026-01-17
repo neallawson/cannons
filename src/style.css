@@ -203,3 +203,77 @@ input[type=range] {
   position: relative;
   z-index: 2;
 }
+
+/* Mobile Controls */
+#mobile-controls {
+  display: none;
+  /* Hidden by default */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 15vh;
+  /* 15% height */
+  background: rgba(20, 20, 20, 0.95);
+  border-top: 2px solid #FFD700;
+  z-index: 1000;
+  font-family: sans-serif;
+  color: white;
+  box-sizing: border-box;
+  padding: 0 10px;
+
+  /* Flex Layout Properties (Applied when display: flex) */
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#mobile-controls.active {
+  display: flex;
+}
+
+.mobile-fire-btn {
+  background: #FF4444;
+  color: white;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  /* Rounded rect */
+  padding: 10px 20px;
+  /* Dynamic size */
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+}
+
+.mobile-fire-btn:active {
+  background: #FF0000;
+  transform: scale(0.95);
+}
+
+.mobile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  margin-right: 20px;
+}
+
+.mobile-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.2rem;
+}
+
+/* Make slider easier to touch */
+#mobilePowerSlider {
+  flex: 1;
+  /* Grow to fill space */
+  height: 30px;
+  margin: 0 10px;
+}

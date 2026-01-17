@@ -48,12 +48,39 @@ export class InputManager {
         this.scale = scale;
     }
 
+    private isMobile: boolean = false;
+
+    public setMobileMode(isMobile: boolean) {
+        this.isMobile = isMobile;
+    }
+
     private setupListeners() {
-        // Mouse movement for angle
+        // Touch movement for angle (Mobile Aiming)
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            if (!this.cannonPosition) return;
+
+            // Use the first touch point
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const touchX = (touch.clientX - rect.left - this.viewOffset.x) / this.scale;
+            const touchY = (touch.clientY - rect.top - this.viewOffset.y) / this.scale;
+
+            const dx = touchX - this.cannonPosition.x;
+            const dy = touchY - this.cannonPosition.y;
+
+            const rad = Math.atan2(dy, dx);
+            let angle = -rad * (180 / Math.PI);
+            if (angle < 0) angle += 360;
+
+            this.currentAngle = angle;
+            this.onAngleChange(this.currentAngle);
+        }, { passive: false });
+
+        // Mouse movement for angle (Desktop Aiming)
         this.canvas.addEventListener('mousemove', (e) => {
             if (!this.cannonPosition) return;
             // Removed !this.isMyTurn check to allow looking around always
-
 
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = (e.clientX - rect.left - this.viewOffset.x) / this.scale;
@@ -85,6 +112,9 @@ export class InputManager {
 
         // Click to fire (Left Click)
         this.canvas.addEventListener('mousedown', (e) => {
+            // Mobile: Disable click-to-fire on canvas (prevent accidental fires when aiming)
+            if (this.isMobile) return;
+
             if (!this.isMyTurn || !this.canFire()) return;
 
             // Left click is button 0

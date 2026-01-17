@@ -8,7 +8,7 @@ export class Renderer {
     private height: number = 0;
 
     // Fixed Logical Resolution
-    private readonly LOGICAL_WIDTH = 2488;
+    private readonly LOGICAL_WIDTH = 3000;
     private readonly LOGICAL_HEIGHT = 1332;
 
     private scale: number = 1;
@@ -68,20 +68,33 @@ export class Renderer {
         return this.scale;
     }
 
+    private bottomPadding: number = 0;
+
+    public setSafeZone(bottomPadding: number) {
+        this.bottomPadding = bottomPadding;
+        this.resize();
+    }
+
     private resize() {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
 
-        // Calculate Scale to fit window while maintaining aspect ratio
+        // Calculate Scale to fit window (minus padding) while maintaining aspect ratio
+        const availableHeight = this.height - this.bottomPadding;
+
         const scaleX = this.width / this.LOGICAL_WIDTH;
-        const scaleY = this.height / this.LOGICAL_HEIGHT;
+        const scaleY = availableHeight / this.LOGICAL_HEIGHT;
         this.scale = Math.min(scaleX, scaleY);
 
-        // Calculate Offset to center the view
+        // Calculate Offset to center the view within the available area
+        // We center it horizontally
         this.viewOffset.x = Math.floor((this.width - (this.LOGICAL_WIDTH * this.scale)) / 2);
-        this.viewOffset.y = Math.floor((this.height - (this.LOGICAL_HEIGHT * this.scale)) / 2);
+
+        // Align vertically to the BOTTOM of the available space
+        // This pushes any extra aspect-ratio space to the TOP (more sky), which looks better.
+        this.viewOffset.y = Math.floor(availableHeight - (this.LOGICAL_HEIGHT * this.scale));
 
         // Resize offscreen canvases to LOGICAL dimensions
         this.castleCanvas.width = this.LOGICAL_WIDTH;
@@ -112,25 +125,31 @@ export class Renderer {
         this.applyIncrementalTerrainDamage(state);
         this.applyIncrementalCastleDamage(state);
 
-        // Clear main canvas (Window)
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Draw Letterbox Background (Dark Grey)
-        this.ctx.fillStyle = '#222';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // 1. Draw Sky (Screen Space - Full Coverage)
+        // We draw this BEFORE the transformation to cover the entire canvas (filling black bars)
+        this.drawSky(this.canvas.width, this.canvas.height);
 
         // Save context and apply transformation
         this.ctx.save();
         this.ctx.translate(this.viewOffset.x, this.viewOffset.y);
         this.ctx.scale(this.scale, this.scale);
 
-        // Clip to game area (Logical Size)
-        this.ctx.beginPath();
-        this.ctx.rect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
-        this.ctx.clip();
+        // Draw Ground Extensions (Infinite Earth on sides)
+        this.drawGroundExtensions(state);
 
-        // Draw Sky
-        this.drawSky();
+        // Clip to game area (Logical Size) - Optional now? 
+        // We still want to clip projectiles/explosions that go out of bounds?
+        // Actually, let's keep clipping for the game content to be safe, 
+        // BUT we need it to NOT clip the ground extension if we drew it inside.
+        // Wait, current logic:
+        // Sky (Global) -> Transform -> GroundExt -> Clip -> GameContent.
+        // If we clip, we cut off the ground extension we just drew?
+        // YES. So we must draw Ground Extension inside the transform but OUTSIDE the clip?
+        // OR just rely on the fact that we are drawing outside the logical rect.
+
+        // We will NOT clip strictly to the box anymore for the visual flair.
+        // However, we don't want artifacts.
+        // Let's rely on the natural viewport clipping (canvas edge).
 
         // Draw Cached Terrain Layer
         this.ctx.drawImage(this.terrainCanvas, 0, 0);
@@ -146,16 +165,31 @@ export class Renderer {
         this.drawProjectiles(state);
         this.drawExplosions(state);
 
-        // Draw Border around Logical Area
-        this.ctx.strokeStyle = '#FFD700'; // Gold border
-        this.ctx.lineWidth = 4;
-        this.ctx.strokeRect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
-
         // Draw Wind Indicator
         this.drawWindIndicator(state);
 
         // Restore context
         this.ctx.restore();
+    }
+
+    private drawGroundExtensions(state: GameStateData) {
+        if (!state.terrain || state.terrain.length === 0) return;
+
+        // Left Extension
+        const leftHeight = state.terrain[0];
+        const leftY = this.LOGICAL_HEIGHT - leftHeight;
+
+        this.ctx.fillStyle = '#5d4037'; // Match the middle brown of the gradient
+        this.ctx.fillRect(-5000, leftY, 5000, this.LOGICAL_HEIGHT + 2000); // 5000px wide extension
+
+        // Right Extension
+        const rightHeight = state.terrain[state.terrain.length - 1];
+        const rightY = this.LOGICAL_HEIGHT - rightHeight;
+
+        this.ctx.fillStyle = '#388E3C'; // Match the green-ish top
+        // Actually let's use a simpler solid gradient or just the brown
+        this.ctx.fillStyle = '#5d4037';
+        this.ctx.fillRect(this.LOGICAL_WIDTH, rightY, 5000, this.LOGICAL_HEIGHT + 2000);
     }
 
     private drawWindIndicator(state: GameStateData) {
@@ -231,13 +265,13 @@ export class Renderer {
         this.ctx.globalAlpha = 1.0;
     }
 
-    private drawSky() {
+    private drawSky(width: number, height: number) {
         // Simple gradient sky - Precalculate if optimization needed, but Gradient is fast enough
-        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.LOGICAL_HEIGHT);
+        const gradient = this.ctx.createLinearGradient(0, 0, 0, height);
         gradient.addColorStop(0, '#87CEEB');
         gradient.addColorStop(1, '#E0F7FA');
         this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.LOGICAL_WIDTH, this.LOGICAL_HEIGHT);
+        this.ctx.fillRect(0, 0, width, height);
     }
 
     private drawTerrainBase(state: GameStateData) {

@@ -179,7 +179,7 @@ export class PhysicsEngine {
             this.checkCollisions(proj, state);
 
             // Check out of bounds (Logical Resolution)
-            if (proj.position.y > 1332 || proj.position.x < 0 || proj.position.x > 2488) {
+            if (proj.position.y > 1332 || proj.position.x < 0 || proj.position.x > 3000) {
                 proj.active = false;
             }
         });

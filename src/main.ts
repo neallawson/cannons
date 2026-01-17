@@ -42,6 +42,18 @@ app.innerHTML = `
       </div>
       <div id="window-size" style="position: absolute; top: 10px; right: 10px; color: lime; font-family: monospace; font-size: 16px; background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;"></div>
   </div>
+
+  <div id="mobile-controls">
+      <div id="mobileAngleDisplay" style="font-weight: bold; color: #FFD700; font-size: 1.2rem; white-space: nowrap;">Ang: 45°</div>
+      
+      <div style="display: flex; align-items: center; flex: 1; margin: 0 5px;">
+          <span style="font-size: 1rem;">Pwr:</span>
+          <input type="range" id="mobilePowerSlider" min="10" max="100" value="50">
+          <span id="mobilePowerValue" style="width: 30px; text-align: right; font-size: 1rem;">50</span>
+      </div>
+
+      <button id="mobileFireBtn" class="mobile-fire-btn">FIRE</button>
+  </div>
 `;
 
 function log(msg: string) {
@@ -50,7 +62,7 @@ function log(msg: string) {
 
 const canvas = document.querySelector<HTMLCanvasElement>('#gameCanvas')!;
 // Fixed Logical Resolution
-const LOGICAL_WIDTH = 2488;
+const LOGICAL_WIDTH = 3000;
 const LOGICAL_HEIGHT = 1332;
 
 // Defer initialization until we have a seed
@@ -176,6 +188,72 @@ function startGame(seed: number) {
 
   // Initial UI Layout
   updateUILayout();
+
+  // Mobile Detection & Setup
+  // Simple check: Touch capability AND smallish screen
+  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isSmallScreen = window.innerWidth <= 768;
+
+  if (isTouchDevice && isSmallScreen) {
+    console.log("Mobile Mode Detected. Engaging Bottom Control Bar.");
+
+    // 1. Alert InputManager
+    inputManager.setMobileMode(true);
+
+    // 2. Hide Desktop UI
+    const desktopUI = document.getElementById('ui-layer');
+    if (desktopUI) desktopUI.style.display = 'none';
+
+    // 3. Show Mobile UI
+    const mobileUI = document.getElementById('mobile-controls');
+    if (mobileUI) {
+      mobileUI.classList.add('active');
+
+      // 3b. Set Safe Zone based on actual rendered height (15vh)
+      const uiHeight = mobileUI.offsetHeight;
+      console.log("Mobile UI Height:", uiHeight);
+
+      if (renderer) {
+        renderer.setSafeZone(uiHeight);
+        updateUILayout(); // Re-sync DOM UI
+      }
+    }
+
+    // 4. Bind Mobile Controls
+    const mobileFireBtn = document.getElementById('mobileFireBtn');
+    if (mobileFireBtn) {
+      mobileFireBtn.addEventListener('click', (e) => {
+        e.preventDefault(); // Prevent ghost clicks
+        inputManager.fire();
+      });
+      // Also listen for touchstart to prevent delay
+      mobileFireBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        inputManager.fire();
+      }, { passive: false });
+    }
+
+    const mobilePowerSlider = document.getElementById('mobilePowerSlider') as HTMLInputElement;
+    const mobilePowerValue = document.getElementById('mobilePowerValue');
+
+    if (mobilePowerSlider) {
+      mobilePowerSlider.addEventListener('input', (e) => {
+        let val = parseInt((e.target as HTMLInputElement).value);
+        if (val > 55) {
+          val = 55;
+          (e.target as HTMLInputElement).value = '55';
+        }
+        if (mobilePowerValue) mobilePowerValue.innerText = val > 54 ? '55 (MAX)' : val.toString();
+        inputManager.setPower(val);
+      });
+    }
+
+    // Sync Mobile Angle Display
+    // We need to hook into the onAngleChange or update the DOM in the loop?
+    // InputManager calls a callback. Let's see...
+    // The callback is defined in line 359: `(angle) => { ... }`
+    // We need to update that callback to ALSO update mobile UI.
+  }
 }
 
 function resetGame(remoteSeed?: number) {
@@ -387,6 +465,21 @@ const inputManager = new InputManager(
         }
       }
       angleDisplay.innerText = `Angle: ${displayAngle}°`;
+    }
+
+    // Sync Mobile Angle Display (Only recursively if active)
+    const mobileUI = document.getElementById('mobile-controls');
+    if (mobileUI && mobileUI.classList.contains('active')) {
+      const mobileAngleDisplay = document.getElementById('mobileAngleDisplay');
+      if (mobileAngleDisplay) {
+        let displayAngle = Math.round(angle);
+        if (myPlayerId === 'p2') {
+          displayAngle = 180 - displayAngle;
+        } else {
+          if (displayAngle > 180) displayAngle -= 360;
+        }
+        mobileAngleDisplay.innerText = `Ang: ${displayAngle}°`;
+      }
     }
 
     if (!gameState) return;
