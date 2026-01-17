@@ -92,8 +92,14 @@ export class Renderer {
         // We center it horizontally
         this.viewOffset.x = Math.floor((this.width - (this.LOGICAL_WIDTH * this.scale)) / 2);
 
-        // Center vertically in the available space
-        this.viewOffset.y = Math.floor((availableHeight - (this.LOGICAL_HEIGHT * this.scale)) / 2);
+        // Vertical alignment depends on whether we have bottom padding (mobile) or not (desktop)
+        if (this.bottomPadding > 0) {
+            // Mobile: Center vertically in the available space (above the bottom UI)
+            this.viewOffset.y = Math.floor((availableHeight - (this.LOGICAL_HEIGHT * this.scale)) / 2);
+        } else {
+            // Desktop: Align to bottom, pushing extra space to top (more sky)
+            this.viewOffset.y = Math.floor(availableHeight - (this.LOGICAL_HEIGHT * this.scale));
+        }
 
         // Resize offscreen canvases to LOGICAL dimensions
         this.castleCanvas.width = this.LOGICAL_WIDTH;
