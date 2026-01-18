@@ -65,6 +65,24 @@ export class ModalManager {
         this.overlay.style.display = 'flex';
     }
 
+    public showCustomContent(content: HTMLElement) {
+        // Show arbitrary HTML content in the modal (for lobby screens)
+        this.clear();
+        this.messageEl.appendChild(content);
+        this.overlay.style.display = 'flex';
+    }
+
+    public updateCustomContent(content: HTMLElement) {
+        // Update content without clearing timer (for lobby screen transitions)
+        this.messageEl.innerHTML = '';
+        this.buttonContainer.innerHTML = '';
+        this.messageEl.appendChild(content);
+    }
+
+    public isVisible(): boolean {
+        return this.overlay.style.display !== 'none';
+    }
+
     public hide() {
         this.overlay.style.display = 'none';
         this.clear();
@@ -75,7 +93,7 @@ export class ModalManager {
             window.clearTimeout(this.timerId);
             this.timerId = null;
         }
-        this.messageEl.innerText = '';
+        this.messageEl.innerHTML = '';
         this.buttonContainer.innerHTML = '';
     }
 }

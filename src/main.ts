@@ -421,7 +421,7 @@ const networkManager = new NetworkManager(
   }, log // Pass logger
 );
 
-lobbyUI = new LobbyUI(networkManager);
+lobbyUI = new LobbyUI(networkManager, modalManager);
 
 function updatePlayerUI() {
   const uiLayer = document.getElementById('ui-layer');
