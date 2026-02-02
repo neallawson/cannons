@@ -17,6 +17,7 @@ export interface Player {
     health: number;
     wins: number;
     isMyTurn: boolean;
+    difficultyLabel?: string;
 }
 
 export interface Projectile {

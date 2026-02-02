@@ -1,4 +1,4 @@
-import type { GameStateData, Projectile, Vector } from './types';
+import type { GameStateData, Projectile, Vector, Point } from './types';
 import { Renderer } from './Renderer';
 
 export class PhysicsEngine {
@@ -375,5 +375,85 @@ export class PhysicsEngine {
         };
 
         state.projectiles.push(projectile);
+    }
+
+    public simulateShot(
+        origin: Point,
+        velocity: Vector,
+        windSpeed: number,
+        targetPlayerId: string,
+        state: GameStateData
+    ): { hit: boolean, missDistance: number } {
+        let x = origin.x;
+        let y = origin.y;
+        let vx = velocity.x;
+        let vy = velocity.y;
+
+        const target = state.players.find(p => p.id === targetPlayerId);
+        // If no target, return huge miss
+        if (!target) return { hit: false, missDistance: 9999 };
+
+        const targetX = target.castlePosition.x;
+        const dt = 1 / 60;
+        const maxSteps = 600; // 10 seconds
+
+        // Castle Bounds (Approximate)
+        const castleW = 120;
+        const castleH = 120;
+        const left = target.castlePosition.x - castleW / 2;
+        const right = target.castlePosition.x + castleW / 2;
+        const top = target.castlePosition.y - castleH;
+        const bottom = target.castlePosition.y;
+
+        for (let i = 0; i < maxSteps; i++) {
+            // Apply Forces
+            vy += this.gravity * dt;
+            vx += windSpeed * this.windFactor * dt;
+
+            // Move
+            x += vx * dt;
+            y += vy * dt;
+
+            // 1. Check Bounds
+            if (x < 0 || x > 3000 || y > 1500) {
+                // Missed (went off world)
+                // Return distance from center of target
+                return { hit: false, missDistance: x - targetX };
+            }
+
+            // 2. Check Target Collision (Simple AABB)
+            if (x >= left && x <= right && y >= top && y <= bottom) {
+                return { hit: true, missDistance: 0 };
+            }
+
+            // 3. Check Terrain Collision (Math-based to avoid Canvas reads)
+            if (this.isPointInTerrain(x, y, state)) {
+                // Hit ground before target
+                return { hit: false, missDistance: x - targetX };
+            }
+        }
+
+        return { hit: false, missDistance: x - targetX };
+    }
+
+    private isPointInTerrain(x: number, y: number, state: GameStateData): boolean {
+        const ix = Math.floor(x);
+        if (ix < 0 || ix >= state.terrain.length) return false;
+
+        const terrainHeight = state.terrain[ix];
+        const groundY = 1332 - terrainHeight; // LOGICAL_HEIGHT
+
+        if (y < groundY) return false; // Above ground
+
+        // Check Holes
+        for (const d of state.terrainDamage) {
+            const dx = x - d.x;
+            const dy = y - d.y;
+            if (dx * dx + dy * dy < d.r * d.r) {
+                return false; // Inside a hole
+            }
+        }
+
+        return true; // Below ground line and not in a hole
     }
 }

@@ -56,6 +56,35 @@ export class ModalManager {
 
         this.buttonContainer.appendChild(btn);
         this.overlay.style.display = 'flex';
+        this.overlay.style.display = 'flex';
+    }
+
+    public showSelectionDialog(title: string, options: { label: string, value: any }[], onSelect: (value: any) => void) {
+        this.clear();
+        this.messageEl.innerHTML = `<h2 style="margin-bottom: 20px;">${title}</h2>`;
+
+        const list = document.createElement('div');
+        list.style.display = 'flex';
+        list.style.flexDirection = 'column';
+        list.style.gap = '10px';
+        list.style.width = '100%';
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'modal-button';
+            btn.style.width = '100%';
+            btn.style.fontSize = '1.2rem';
+            btn.style.padding = '10px';
+            btn.innerText = opt.label;
+            btn.onclick = () => {
+                this.hide();
+                onSelect(opt.value);
+            };
+            list.appendChild(btn);
+        });
+
+        this.messageEl.appendChild(list);
+        this.overlay.style.display = 'flex';
     }
 
     public showMessage(text: string) {

@@ -165,6 +165,9 @@ export class Renderer {
         // Draw Dynamic Elements
         state.players.forEach(player => {
             this.drawCannon(player.castlePosition, player.cannonAngle);
+            if (player.difficultyLabel) {
+                this.drawPlayerLabel(player.castlePosition, player.difficultyLabel);
+            }
         });
 
         this.drawProjectiles(state);
@@ -443,6 +446,28 @@ export class Renderer {
         this.ctx.rotate(-angle * (Math.PI / 180));
         this.ctx.fillStyle = '#333';
         this.ctx.fillRect(0, -8, 60, 16);
+
+        this.ctx.restore();
+    }
+
+    private drawPlayerLabel(position: Point, text: string) {
+        this.ctx.save();
+        const x = position.x;
+        // Position at the very bottom of the logical world (Deep Green area)
+        const y = this.LOGICAL_HEIGHT - 100;
+
+        this.ctx.font = 'bold 40px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+
+        // Stroke
+        this.ctx.lineWidth = 4;
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.strokeText(text, x, y);
+
+        // Fill
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillText(text, x, y);
 
         this.ctx.restore();
     }
