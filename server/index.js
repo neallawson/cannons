@@ -2,6 +2,7 @@ const WebSocket = require('ws');
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,17 +10,23 @@ const server = http.createServer(app);
 // Serve static files from 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, maxPayload: 10240 });
 
 // State
 const rooms = new Map(); // roomId -> { id, name, isPublic, host: ws, client: ws }
 const clientRooms = new Map(); // ws -> roomId
 
 function generateRoomId() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  return crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+function heartbeat() {
+  this.isAlive = true;
 }
 
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', heartbeat);
   console.log('Client connected');
 
   ws.on('message', (message) => {
@@ -34,9 +41,13 @@ wss.on('connection', (ws) => {
     switch (data.type) {
       case 'create_game': {
         const roomId = generateRoomId();
+        let roomName = data.name;
+        if (typeof roomName !== 'string') roomName = `Game ${roomId}`;
+        else roomName = roomName.substring(0, 30);
+
         const room = {
           id: roomId,
-          name: data.name || `Game ${roomId}`,
+          name: roomName,
           isPublic: !!data.isPublic,
           host: ws,
           client: null
@@ -61,7 +72,7 @@ wss.on('connection', (ws) => {
       }
 
       case 'join_game': {
-        const roomId = data.roomId;
+        const roomId = typeof data.roomId === 'string' ? data.roomId : '';
         const room = rooms.get(roomId);
 
         if (!room) {
@@ -145,6 +156,21 @@ wss.on('connection', (ws) => {
     }
     console.log('Client disconnected');
   });
+});
+
+const interval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      console.log('Terminating inactive connection');
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+wss.on('close', () => {
+  clearInterval(interval);
 });
 
 const PORT = process.env.PORT || 8080;
